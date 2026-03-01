@@ -1,0 +1,7 @@
+#include "afl/results.h"
+#include "afl/bfres/results.h"
+#include "afl/byml/results.h"
+
+#if __has_include_next("HakkunResults.ih")
+#include_next "HakkunResults.ih"
+#endif

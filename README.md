@@ -6,7 +6,7 @@ Supported formats:
 * Yaz0
 * SARC
 * SZS (Yaz0-compressed SARC)
-* BYML
+* BYML (versions: 2, 3)
 
 In progress:
 * BFFNT
@@ -20,6 +20,10 @@ mkdir build && cd build
 cmake ..
 make
 ```
+
+### Requirements
+
+- clang >= 16
 
 ## Credits
 

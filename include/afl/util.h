@@ -1,23 +1,19 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
+#include <hk/types.h>
+#include <hk/util/Math.h>
 #include <string>
 #include <vector>
 
-#include "afl/types.h"
+#include "float16_t/float16_t.hpp"
+
+using f16 = numeric::float16_t;
 
 namespace fs = std::filesystem;
 
 namespace util {
-
-enum Error : result_t {
-	BadSignature = 1,
-	BadByteOrder,
-	FileError,
-	FileNotFound,
-	DirNotFound,
-	HeaderSizeMismatch,
-};
 
 enum class ByteOrder {
 	Big,
@@ -29,7 +25,7 @@ u32 bswap32(u32 value);
 
 bool isEqual(std::string str1, std::string str2);
 u32 roundUp(u32 x, u32 powerOf2);
-s32 readFile(std::vector<u8>& contents, const fs::path& filename);
+hk::Result readFile(std::vector<u8>& contents, const fs::path& filename);
 void writeFile(const fs::path& filename, const std::vector<u8>& contents);
 void writeFile(const fs::path& filename, const std::string& contents);
 
@@ -40,6 +36,27 @@ inline void hashCombine(size_t& s, const T& v) {
 }
 
 } // namespace util
+
+template <typename T>
+struct std::hash<hk::util::Vector2<T>> {
+	std::size_t operator()(const hk::util::Vector2<T>& vec) const noexcept {
+		size_t out = 0;
+		util::hashCombine(out, vec.x);
+		util::hashCombine(out, vec.y);
+		return out;
+	}
+};
+
+template <typename T>
+struct std::hash<hk::util::Vector3<T>> {
+	std::size_t operator()(const hk::util::Vector3<T>& vec) const noexcept {
+		size_t out = 0;
+		util::hashCombine(out, vec.x);
+		util::hashCombine(out, vec.y);
+		util::hashCombine(out, vec.z);
+		return out;
+	}
+};
 
 namespace reader {
 u8 readU8(const u8* offset);
@@ -76,8 +93,8 @@ s64 readS64LE(const u8* offset);
 f64 readF64BE(const u8* offset);
 f64 readF64LE(const u8* offset);
 
-result_t readByteOrder(util::ByteOrder* out, const u8* offset, u16 expectedBE);
-result_t checkSignature(const u8* offset, const std::string& expected, size_t length);
+hk::Result readByteOrder(util::ByteOrder* out, const u8* offset, u16 expectedBE);
+hk::Result checkSignature(const u8* offset, const std::string& expected, size_t length);
 const std::string readString(const u8* offset);
 const std::string readString(const u8* offset, size_t length);
 std::vector<u8> readBytes(const u8* offset, size_t size);

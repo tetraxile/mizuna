@@ -1,5 +1,3 @@
-#include <cassert>
-
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
 
 namespace bfres {} // namespace bfres

@@ -1,11 +1,9 @@
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
 
 namespace bfres {
 
-result_t FSHP::read(const u8* offset) {
-	result_t r;
-	r = readHeader(offset, "FSHP");
-	if (r) return r;
+hk::Result FSHP::read(const u8* offset) {
+	HK_TRY(readHeader(offset, "FSHP"));
 
 	mName = readString(offset + 0x10);
 	u64 vtxBufferOffset = reader::readU64(offset + 0x18, mByteOrder);
@@ -50,15 +48,14 @@ result_t FSHP::read(const u8* offset) {
 	for (s32 i = 0; i < meshCount; i++) {
 		const u8* meshOffset = mBase + meshArrayOffset + i * Mesh::cSize;
 		Mesh* mesh = new Mesh(mFile, mBase, mByteOrder);
-		r = mesh->read(meshOffset);
-		if (r) return r;
+		HK_TRY(mesh->read(meshOffset));
 		mMeshes.push_back(mesh);
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Mesh::read(const u8* offset) {
+hk::Result Mesh::read(const u8* offset) {
 	u64 subMeshArrayOffset = reader::readU64(offset, mByteOrder);
 	mMemoryPoolOffset = reader::readU64(offset + 0x8, mByteOrder);
 	u64 bufferOffset = reader::readU64(offset + 0x10, mByteOrder);
@@ -80,7 +77,7 @@ result_t Mesh::read(const u8* offset) {
 		idxBuffer += bufferSize;
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 } // namespace bfres

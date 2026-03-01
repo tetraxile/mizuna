@@ -50,16 +50,16 @@ void Writer::save(const std::string& filename, util::ByteOrder byteOrder) {
 	util::writeFile(filename, outputBuffer);
 }
 
-result_t Writer::pushArray() {
+hk::Result Writer::pushArray() {
 	// check if stack level is max, if it is then return error
-	if (mStackIdx == STACK_SIZE - 1) return Error::FullStack;
+	if (mStackIdx == STACK_SIZE - 1) return ResultFullStack();
 
 	Array* child = new Array;
 
 	// if stack is not empty, add array to container on top of stack
 	if (mStackIdx > -1) {
 		Container* top = mContainerStack[mStackIdx];
-		if (top->mType != NodeType::Array) return Error::WrongNodeType;
+		if (top->mType != NodeType::Array) return ResultWrongNodeType();
 		Array* parent = static_cast<Array*>(top);
 		parent->mNodes.push_back(child);
 	}
@@ -68,19 +68,19 @@ result_t Writer::pushArray() {
 	mContainerStack[++mStackIdx] = child;
 	mContainerList.push_back(child);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::pushHash() {
+hk::Result Writer::pushHash() {
 	// check if stack level is max, if it is then return error
-	if (mStackIdx == STACK_SIZE - 1) return Error::FullStack;
+	if (mStackIdx == STACK_SIZE - 1) return ResultFullStack();
 
 	Hash* child = new Hash(mHashKeyStringTable);
 
 	// if stack is not empty, add hash to container on top of stack
 	if (mStackIdx > -1) {
 		Container* top = mContainerStack[mStackIdx];
-		if (top->mType != NodeType::Array) return Error::WrongNodeType;
+		if (top->mType != NodeType::Array) return ResultWrongNodeType();
 		Array* parent = static_cast<Array*>(top);
 		parent->mNodes.push_back(child);
 	}
@@ -89,20 +89,20 @@ result_t Writer::pushHash() {
 	mContainerStack[++mStackIdx] = child;
 	mContainerList.push_back(child);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::pushArray(const std::string& key) {
+hk::Result Writer::pushArray(const std::string& key) {
 	// check if stack level is invalid, if it is then return error
-	if (mStackIdx == STACK_SIZE - 1) return Error::FullStack;
-	if (mStackIdx == -1) return Error::EmptyStack;
+	if (mStackIdx == STACK_SIZE - 1) return ResultFullStack();
+	if (mStackIdx == -1) return ResultEmptyStack();
 
 	Array* child = new Array;
 	mHashKeyStringTable.addString(key);
 
 	// if stack is not empty, add array to container on top of stack
 	Container* top = mContainerStack[mStackIdx];
-	if (top->mType != NodeType::Hash) return Error::WrongNodeType;
+	if (top->mType != NodeType::Hash) return ResultWrongNodeType();
 	Hash* parent = static_cast<Hash*>(top);
 	parent->mNodes.push_back(std::make_pair(key, child));
 
@@ -110,20 +110,20 @@ result_t Writer::pushArray(const std::string& key) {
 	mContainerStack[++mStackIdx] = child;
 	mContainerList.push_back(child);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::pushHash(const std::string& key) {
+hk::Result Writer::pushHash(const std::string& key) {
 	// check if stack level is invalid, if it is then return error
-	if (mStackIdx == STACK_SIZE - 1) return Error::FullStack;
-	if (mStackIdx == -1) return Error::EmptyStack;
+	if (mStackIdx == STACK_SIZE - 1) return ResultFullStack();
+	if (mStackIdx == -1) return ResultEmptyStack();
 
 	Hash* child = new Hash(mHashKeyStringTable);
 	mHashKeyStringTable.addString(key);
 
 	// if stack is not empty, add hash to container on top of stack
 	Container* top = mContainerStack[mStackIdx];
-	if (top->mType != NodeType::Hash) return Error::WrongNodeType;
+	if (top->mType != NodeType::Hash) return ResultWrongNodeType();
 	Hash* parent = static_cast<Hash*>(top);
 	parent->mNodes.push_back(std::make_pair(key, child));
 
@@ -131,127 +131,127 @@ result_t Writer::pushHash(const std::string& key) {
 	mContainerStack[++mStackIdx] = child;
 	mContainerList.push_back(child);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::pop() {
+hk::Result Writer::pop() {
 	// check if stack level is -1, if it is then return error
-	if (mStackIdx == -1) return Error::EmptyStack;
+	if (mStackIdx == -1) return ResultEmptyStack();
 
 	// decrease stack level
 	mStackIdx--;
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::addNode(Node* node) {
-	if (mStackIdx == -1) return Error::EmptyStack;
+hk::Result Writer::addNode(Node* node) {
+	if (mStackIdx == -1) return ResultEmptyStack();
 
 	Container* top = mContainerStack[mStackIdx];
 	assert(top && "top of stack is not initialized");
-	if (top->mType != NodeType::Array) return Error::WrongNodeType;
+	if (top->mType != NodeType::Array) return ResultWrongNodeType();
 
 	Array* topArray = static_cast<Array*>(top);
 	topArray->mNodes.push_back(node);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::addNode(const std::string& key, Node* node) {
-	if (mStackIdx == -1) return Error::EmptyStack;
+hk::Result Writer::addNode(const std::string& key, Node* node) {
+	if (mStackIdx == -1) return ResultEmptyStack();
 
 	Container* top = mContainerStack[mStackIdx];
 	assert(top && "top of stack is not initialized");
-	if (top->mType != NodeType::Hash) return Error::WrongNodeType;
+	if (top->mType != NodeType::Hash) return ResultWrongNodeType();
 
 	Hash* topHash = static_cast<Hash*>(top);
 	mHashKeyStringTable.addString(key);
 	topHash->mNodes.push_back(std::make_pair(key, node));
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Writer::addString(const std::string& value) {
+hk::Result Writer::addString(const std::string& value) {
 	mValueStringTable.addString(value);
 	return addNode(new String(value, mValueStringTable));
 }
 
-result_t Writer::addBool(bool value) {
+hk::Result Writer::addBool(bool value) {
 	return addNode(new Bool(value));
 }
 
-result_t Writer::addS32(s32 value) {
+hk::Result Writer::addS32(s32 value) {
 	return addNode(new S32(value));
 }
 
-result_t Writer::addF32(f32 value) {
+hk::Result Writer::addF32(f32 value) {
 	return addNode(new F32(value));
 }
 
-result_t Writer::addU32(u32 value) {
+hk::Result Writer::addU32(u32 value) {
 	return addNode(new U32(value));
 }
 
-result_t Writer::addS64(s64 value) {
+hk::Result Writer::addS64(s64 value) {
 	S64* node = new S64(value);
 	mData64.push_back(node);
 	return addNode(node);
 }
 
-result_t Writer::addU64(u64 value) {
+hk::Result Writer::addU64(u64 value) {
 	U64* node = new U64(value);
 	mData64.push_back(node);
 	return addNode(node);
 }
 
-result_t Writer::addF64(f64 value) {
+hk::Result Writer::addF64(f64 value) {
 	F64* node = new F64(value);
 	mData64.push_back(node);
 	return addNode(node);
 }
 
-result_t Writer::addNull() {
+hk::Result Writer::addNull() {
 	return addNode(new Null);
 }
 
-result_t Writer::addString(const std::string& key, const std::string& value) {
+hk::Result Writer::addString(const std::string& key, const std::string& value) {
 	mValueStringTable.addString(value);
 	return addNode(key, new String(value, mValueStringTable));
 }
 
-result_t Writer::addBool(const std::string& key, bool value) {
+hk::Result Writer::addBool(const std::string& key, bool value) {
 	return addNode(key, new Bool(value));
 }
 
-result_t Writer::addS32(const std::string& key, s32 value) {
+hk::Result Writer::addS32(const std::string& key, s32 value) {
 	return addNode(key, new S32(value));
 }
 
-result_t Writer::addF32(const std::string& key, f32 value) {
+hk::Result Writer::addF32(const std::string& key, f32 value) {
 	return addNode(key, new F32(value));
 }
 
-result_t Writer::addU32(const std::string& key, u32 value) {
+hk::Result Writer::addU32(const std::string& key, u32 value) {
 	return addNode(key, new U32(value));
 }
 
-result_t Writer::addS64(const std::string& key, s64 value) {
+hk::Result Writer::addS64(const std::string& key, s64 value) {
 	S64* node = new S64(value);
 	mData64.push_back(node);
 	return addNode(key, node);
 }
 
-result_t Writer::addU64(const std::string& key, u64 value) {
+hk::Result Writer::addU64(const std::string& key, u64 value) {
 	U64* node = new U64(value);
 	mData64.push_back(node);
 	return addNode(key, node);
 }
 
-result_t Writer::addF64(const std::string& key, f64 value) {
+hk::Result Writer::addF64(const std::string& key, f64 value) {
 	F64* node = new F64(value);
 	mData64.push_back(node);
 	return addNode(key, node);
 }
 
-result_t Writer::addNull(const std::string& key) {
+hk::Result Writer::addNull(const std::string& key) {
 	return addNode(key, new Null);
 }
 

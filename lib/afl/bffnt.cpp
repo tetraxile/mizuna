@@ -5,26 +5,20 @@
 
 #include "afl/util.h"
 
-result_t BFFNT::readHeader(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "FFNT", 4);
-	if (r) return r;
-
-	r = reader::readByteOrder(&mByteOrder, offset + 4, 0xFEFF);
-	if (r) return r;
+hk::Result BFFNT::readHeader(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "FFNT", 4));
+	HK_TRY(reader::readByteOrder(&mByteOrder, offset + 4, 0xFEFF));
 
 	u16 headerSize = reader::readU16(offset + 6, mByteOrder);
 	u32 version = reader::readU32(offset + 8, mByteOrder);
 	u32 fileSize = reader::readU32(offset + 0xc, mByteOrder);
 	u16 sectionCount = reader::readU16(offset + 0x10, mByteOrder);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t BFFNT::readFINF(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "FINF", 4);
-	if (r) return r;
+hk::Result BFFNT::readFINF(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "FINF", 4));
 
 	u32 blockSize = reader::readU32(offset + 4, mByteOrder);
 	const u8* blockOffset = offset + 8;
@@ -56,13 +50,11 @@ result_t BFFNT::readFINF(const u8* offset) {
 	// printf("CWDH: %x\n", mFontInfo.mCWDHOffset);
 	// printf("CMAP: %x\n", mFontInfo.mCMAPOffset);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t BFFNT::readTGLP(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "TGLP", 4);
-	if (r) return r;
+hk::Result BFFNT::readTGLP(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "TGLP", 4));
 
 	u32 blockSize = reader::readU32(offset + 4, mByteOrder);
 	const u8* blockOffset = offset + 8;
@@ -90,15 +82,13 @@ result_t BFFNT::readTGLP(const u8* offset) {
 	// printf("image dims: %x x %x\n", mTexGlyph.mImageWidth, mTexGlyph.mImageHeight);
 	// printf("image data offset: %x\n", mTexGlyph.mImageDataOffset);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t BFFNT::readCWDH(BFFNT::CWDH* cwdh, const u8* offset) {
+hk::Result BFFNT::readCWDH(BFFNT::CWDH* cwdh, const u8* offset) {
 	assert(cwdh != nullptr);
 
-	result_t r;
-	r = reader::checkSignature(offset, "CWDH", 4);
-	if (r) return r;
+	HK_TRY(reader::checkSignature(offset, "CWDH", 4));
 
 	u32 blockSize = reader::readU32(offset + 4, mByteOrder);
 	const u8* blockOffset = offset + 8;
@@ -126,15 +116,13 @@ result_t BFFNT::readCWDH(BFFNT::CWDH* cwdh, const u8* offset) {
 	// width.mCharWidth);
 	// }
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t BFFNT::readCMAP(BFFNT::CMAP* cmap, const u8* offset) {
+hk::Result BFFNT::readCMAP(BFFNT::CMAP* cmap, const u8* offset) {
 	assert(cmap != nullptr);
 
-	result_t r;
-	r = reader::checkSignature(offset, "CMAP", 4);
-	if (r) return r;
+	HK_TRY(reader::checkSignature(offset, "CMAP", 4));
 
 	u32 blockSize = reader::readU32(offset + 4, mByteOrder);
 	const u8* blockOffset = offset + 8;
@@ -172,22 +160,18 @@ result_t BFFNT::readCMAP(BFFNT::CMAP* cmap, const u8* offset) {
 		}
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t BFFNT::read() {
-	result_t r;
+hk::Result BFFNT::read() {
 	// file header
-	r = readHeader(&mContents[0]);
-	if (r) return r;
+	HK_TRY(readHeader(&mContents[0]));
 
 	// font info
-	r = readFINF(&mContents[0x14]);
-	if (r) return r;
+	HK_TRY(readFINF(&mContents[0x14]));
 
 	// texture glyph
-	r = readTGLP(&mContents[0] + mFontInfo.mTGLPOffset - 8);
-	if (r) return r;
+	HK_TRY(readTGLP(&mContents[0] + mFontInfo.mTGLPOffset - 8));
 
 	const u8* imageOffset = &mContents[0] + mTexGlyph.mImageDataOffset;
 	std::vector<u8> imageData = reader::readBytes(imageOffset, mTexGlyph.mPerTexSize);
@@ -198,8 +182,7 @@ result_t BFFNT::read() {
 	const u8* nextOffset = &mContents[0] + mFontInfo.mCWDHOffset;
 	while (nextOffset - &mContents[0] != 0) {
 		CWDH cwdh;
-		r = readCWDH(&cwdh, nextOffset - 8);
-		if (r) return r;
+		HK_TRY(readCWDH(&cwdh, nextOffset - 8));
 		nextOffset = &mContents[0] + cwdh.mNextCWDHOffset;
 	}
 
@@ -207,10 +190,9 @@ result_t BFFNT::read() {
 	nextOffset = &mContents[0] + mFontInfo.mCMAPOffset;
 	while (nextOffset - &mContents[0] != 0) {
 		CMAP cmap;
-		r = readCMAP(&cmap, nextOffset - 8);
-		if (r) return r;
+		HK_TRY(readCMAP(&cmap, nextOffset - 8));
 		nextOffset = &mContents[0] + cmap.mNextCMAPOffset;
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }

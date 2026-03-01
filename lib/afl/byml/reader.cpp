@@ -1,22 +1,26 @@
 #include "afl/byml/reader.h"
 
 #include <algorithm>
-#include <cassert>
 #include <cstdio>
 #include <numeric>
+
+#include "afl/byml/results.h"
+#include "afl/results.h"
 
 namespace byml {
 
 Reader::Reader() {}
 
-result_t Reader::initHeader() {
-	result_t r;
-
-	r = reader::readByteOrder(&mHeader.mByteOrder, mFileData, 0x4259);
-	if (r) return r;
+hk::Result Reader::initHeader() {
+	HK_TRY(reader::readByteOrder(&mHeader.mByteOrder, mFileData, 0x4259));
 
 	mHeader.mVersion = reader::readU16(mFileData + 2, mHeader.mByteOrder);
-	assert(mHeader.mVersion == 2 || mHeader.mVersion == 3);
+	if (mHeader.mVersion != 2 && mHeader.mVersion != 3) {
+		fprintf(
+			stderr, "error: unsupported BYML version (got: %d, expected: 2, 3)\n", mHeader.mVersion
+		);
+		return ResultUnimplementedVersion();
+	}
 
 	mHeader.mHashKeyTableOffset = reader::readU32(mFileData + 4, mHeader.mByteOrder);
 	mHeader.mStringValueTableOffset = reader::readU32(mFileData + 8, mHeader.mByteOrder);
@@ -30,35 +34,30 @@ result_t Reader::initHeader() {
 		mHeader.mStringValueTableSize =
 			reader::readU24(mFileData + mHeader.mStringValueTableOffset + 1, mHeader.mByteOrder);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::init(const u8* fileData) {
-	result_t r;
-
+hk::Result Reader::init(const u8* fileData) {
 	mFileData = fileData;
 
-	r = initHeader();
-	if (r) return r;
+	HK_TRY(initHeader());
 
 	if (mHeader.mRootOffset) {
 		mOffset = mFileData + mHeader.mRootOffset;
 		initKeyOrder();
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::init(const Reader& other, const u32 offset) {
-	result_t r;
-
+hk::Result Reader::init(const Reader& other, const u32 offset) {
 	mHeader = other.mHeader;
 	mFileData = other.mFileData;
 	mOffset = mFileData + offset;
 
 	initKeyOrder();
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 void Reader::initKeyOrder() {
@@ -89,7 +88,7 @@ NodeType Reader::getType() const {
 }
 
 u32 Reader::getSize() const {
-	if (mOffset == nullptr || getType() == NodeType::Null) return 0;
+	if (mOffset == nullptr || getType() == NodeType::Null) return hk::ResultSuccess();
 
 	return reader::readU24(mOffset + 1, mHeader.mByteOrder);
 }
@@ -139,7 +138,9 @@ bool Reader::isExistStringValue(const std::string& str) const {
 	return false;
 }
 
-result_t Reader::getContainerOffsets(const u8** typeOffset, const u8** valueOffset, u32 idx) const {
+hk::Result Reader::getContainerOffsets(
+	const u8** typeOffset, const u8** valueOffset, u32 idx
+) const {
 	if (getType() == NodeType::Array) {
 		*typeOffset = mOffset + 4 + idx;
 		*valueOffset = mOffset + util::roundUp(4 + getSize(), 4) + 4 * idx;
@@ -148,20 +149,19 @@ result_t Reader::getContainerOffsets(const u8** typeOffset, const u8** valueOffs
 		*typeOffset = mOffset + 7 + 8 * hashIdx;
 		*valueOffset = mOffset + 8 + 8 * hashIdx;
 	} else {
-		return Error::WrongNodeType;
+		return ResultWrongNodeType();
 	}
-	if (idx >= getSize()) return Error::OutOfBounds;
+	if (idx >= getSize()) return ResultOutOfBounds();
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getTypeByIdx(NodeType* type, u32 idx) const {
+hk::Result Reader::getTypeByIdx(NodeType* type, u32 idx) const {
 	const u8 *typeOffset, *valueOffset;
-	result_t r = getContainerOffsets(&typeOffset, &valueOffset, idx);
-	if (r) return r;
+	HK_TRY(getContainerOffsets(&typeOffset, &valueOffset, idx));
 
 	*type = (NodeType)reader::readU8(typeOffset);
-	return 0;
+	return hk::ResultSuccess();
 }
 
 const std::string Reader::getKeyByIdx(u32 idx) const {
@@ -173,117 +173,107 @@ const std::string Reader::getKeyByIdx(u32 idx) const {
 	return getHashString(keyValue);
 }
 
-result_t Reader::getContainerByIdx(Reader* container, u32 idx) const {
+hk::Result Reader::getContainerByIdx(Reader* container, u32 idx) const {
 	const u8 *typeOffset, *valueOffset;
-	result_t r = getContainerOffsets(&typeOffset, &valueOffset, idx);
-	if (r) return r;
+	HK_TRY(getContainerOffsets(&typeOffset, &valueOffset, idx));
 
 	NodeType childType = (NodeType)reader::readU8(typeOffset);
-	if (childType != NodeType::Array && childType != NodeType::Hash) return Error::WrongNodeType;
+	if (childType != NodeType::Array && childType != NodeType::Hash) return ResultWrongNodeType();
 
 	u32 value = reader::readU32(valueOffset, mHeader.mByteOrder);
 	container->init(*this, value);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getNodeByIdx(const u8** offset, u32 idx, NodeType expectedType) const {
+hk::Result Reader::getNodeByIdx(const u8** offset, u32 idx, NodeType expectedType) const {
 	const u8 *typeOffset, *valueOffset;
-	result_t r = getContainerOffsets(&typeOffset, &valueOffset, idx);
-	if (r) return r;
+	HK_TRY(getContainerOffsets(&typeOffset, &valueOffset, idx));
 
 	NodeType childType = (NodeType)reader::readU8(typeOffset);
-	if (childType != expectedType) return Error::WrongNodeType;
+	if (childType != expectedType) return ResultWrongNodeType();
 
 	*offset = valueOffset;
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getStringByIdx(std::string* out, u32 idx) const {
+hk::Result Reader::getStringByIdx(std::string* out, u32 idx) const {
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::String);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::String));
 
 	u32 value = reader::readU32(offset, mHeader.mByteOrder);
 	*out = getValueString(value);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getBoolByIdx(bool* out, u32 idx) const {
+hk::Result Reader::getBoolByIdx(bool* out, u32 idx) const {
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::Bool);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::Bool));
 
 	// note: treats non-boolean values (i.e. values that are not 0 or 1) as true
 	u32 value = reader::readU32(offset, mHeader.mByteOrder);
 	*out = value != 0;
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getS32ByIdx(s32* out, u32 idx) const {
+hk::Result Reader::getS32ByIdx(s32* out, u32 idx) const {
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::S32);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::S32));
 
 	*out = reader::readS32(offset, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getF32ByIdx(f32* out, u32 idx) const {
+hk::Result Reader::getF32ByIdx(f32* out, u32 idx) const {
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::F32);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::F32));
 
 	*out = reader::readF32(offset, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getU32ByIdx(u32* out, u32 idx) const {
+hk::Result Reader::getU32ByIdx(u32* out, u32 idx) const {
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::U32);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::U32));
 
 	*out = reader::readU32(offset, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getS64ByIdx(s64* out, u32 idx) const {
-	if (mHeader.mVersion < 3) return Error::InvalidVersion;
+hk::Result Reader::getS64ByIdx(s64* out, u32 idx) const {
+	if (mHeader.mVersion < 3) return ResultInvalidVersion();
 
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::S64);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::S64));
 
 	u32 value = reader::readU32(offset, mHeader.mByteOrder);
 	*out = reader::readS64(mFileData + value, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getF64ByIdx(f64* out, u32 idx) const {
-	if (mHeader.mVersion < 3) return Error::InvalidVersion;
+hk::Result Reader::getF64ByIdx(f64* out, u32 idx) const {
+	if (mHeader.mVersion < 3) return ResultInvalidVersion();
 
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::F64);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::F64));
 
 	u32 value = reader::readU32(offset, mHeader.mByteOrder);
 	*out = reader::readF64(mFileData + value, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getU64ByIdx(u64* out, u32 idx) const {
-	if (mHeader.mVersion < 3) return Error::InvalidVersion;
+hk::Result Reader::getU64ByIdx(u64* out, u32 idx) const {
+	if (mHeader.mVersion < 3) return ResultInvalidVersion();
 
 	const u8* offset;
-	result_t r = getNodeByIdx(&offset, idx, NodeType::U64);
-	if (r) return r;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::U64));
 
 	u32 value = reader::readU32(offset, mHeader.mByteOrder);
 	*out = reader::readU64(mFileData + value, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getTypeByKey(NodeType* type, const std::string& key) const {
-	if (getType() != NodeType::Hash) return Error::WrongNodeType;
+hk::Result Reader::getTypeByKey(NodeType* type, const std::string& key) const {
+	if (getType() != NodeType::Hash) return ResultWrongNodeType();
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
@@ -291,15 +281,15 @@ result_t Reader::getTypeByKey(NodeType* type, const std::string& key) const {
 		u32 keyIdx = reader::readU24(childOffset, mHeader.mByteOrder);
 		if (util::isEqual(key, getHashString(keyIdx))) {
 			*type = (NodeType)reader::readU8(childOffset + 3);
-			return 0;
+			return hk::ResultSuccess();
 		}
 	}
 
-	return Error::InvalidKey;
+	return ResultInvalidKey();
 }
 
-result_t Reader::getContainerByKey(Reader* container, const std::string& key) const {
-	if (getType() != NodeType::Hash) return Error::WrongNodeType;
+hk::Result Reader::getContainerByKey(Reader* container, const std::string& key) const {
+	if (getType() != NodeType::Hash) return ResultWrongNodeType();
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
@@ -307,22 +297,22 @@ result_t Reader::getContainerByKey(Reader* container, const std::string& key) co
 		u32 keyIdx = reader::readU24(childOffset, mHeader.mByteOrder);
 		if (util::isEqual(key, getHashString(keyIdx))) {
 			NodeType type = (NodeType)reader::readU8(childOffset + 3);
-			if (type != NodeType::Array && type != NodeType::Hash) return Error::WrongNodeType;
+			if (type != NodeType::Array && type != NodeType::Hash) return ResultWrongNodeType();
 
 			u32 value = reader::readU32(childOffset + 4, mHeader.mByteOrder);
 			container->init(*this, value);
 
-			return 0;
+			return hk::ResultSuccess();
 		}
 	}
 
-	return Error::InvalidKey;
+	return ResultInvalidKey();
 }
 
-result_t Reader::getNodeByKey(
+hk::Result Reader::getNodeByKey(
 	const u8** offset, const std::string& key, NodeType expectedType
 ) const {
-	if (getType() != NodeType::Hash) return Error::WrongNodeType;
+	if (getType() != NodeType::Hash) return ResultWrongNodeType();
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
@@ -330,98 +320,90 @@ result_t Reader::getNodeByKey(
 		u32 keyIdx = reader::readU24(childOffset, mHeader.mByteOrder);
 		if (util::isEqual(key, getHashString(keyIdx))) {
 			NodeType childType = (NodeType)reader::readU8(childOffset + 3);
-			if (childType != expectedType) return Error::WrongNodeType;
+			if (childType != expectedType) return ResultWrongNodeType();
 
 			*offset = childOffset;
-			return 0;
+			return hk::ResultSuccess();
 		}
 	}
 
-	return Error::InvalidKey;
+	return ResultInvalidKey();
 }
 
-result_t Reader::getStringByKey(std::string* out, const std::string& key) const {
+hk::Result Reader::getStringByKey(std::string* out, const std::string& key) const {
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::String);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::String));
 
 	u32 value = reader::readU32(offset + 4, mHeader.mByteOrder);
 	*out = getValueString(value);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getBoolByKey(bool* out, const std::string& key) const {
+hk::Result Reader::getBoolByKey(bool* out, const std::string& key) const {
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::Bool);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::Bool));
 
 	// note: treats non-boolean values (i.e. values that are not 0 or 1) as true
 	u32 value = reader::readU32(offset + 4, mHeader.mByteOrder);
 	*out = value != 0;
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getS32ByKey(s32* out, const std::string& key) const {
+hk::Result Reader::getS32ByKey(s32* out, const std::string& key) const {
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::S32);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::S32));
 
 	*out = reader::readS32(offset + 4, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getF32ByKey(f32* out, const std::string& key) const {
+hk::Result Reader::getF32ByKey(f32* out, const std::string& key) const {
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::F32);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::F32));
 
 	*out = reader::readF32(offset + 4, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getU32ByKey(u32* out, const std::string& key) const {
+hk::Result Reader::getU32ByKey(u32* out, const std::string& key) const {
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::U32);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::U32));
 
 	*out = reader::readU32(offset + 4, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getS64ByKey(s64* out, const std::string& key) const {
-	if (mHeader.mVersion < 3) return Error::InvalidVersion;
+hk::Result Reader::getS64ByKey(s64* out, const std::string& key) const {
+	if (mHeader.mVersion < 3) return ResultInvalidVersion();
 
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::S64);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::S64));
 
 	u32 value = reader::readU32(offset + 4, mHeader.mByteOrder);
 	*out = reader::readS64(mFileData + value, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getF64ByKey(f64* out, const std::string& key) const {
-	if (mHeader.mVersion < 3) return Error::InvalidVersion;
+hk::Result Reader::getF64ByKey(f64* out, const std::string& key) const {
+	if (mHeader.mVersion < 3) return ResultInvalidVersion();
 
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::F64);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::F64));
 
 	u32 value = reader::readU32(offset + 4, mHeader.mByteOrder);
 	*out = reader::readF64(mFileData + value, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getU64ByKey(u64* out, const std::string& key) const {
-	if (mHeader.mVersion < 3) return Error::InvalidVersion;
+hk::Result Reader::getU64ByKey(u64* out, const std::string& key) const {
+	if (mHeader.mVersion < 3) return ResultInvalidVersion();
 
 	const u8* offset;
-	result_t r = getNodeByKey(&offset, key, NodeType::U64);
-	if (r) return r;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::U64));
 
 	u32 value = reader::readU32(offset + 4, mHeader.mByteOrder);
 	*out = reader::readU64(mFileData + value, mHeader.mByteOrder);
-	return 0;
+	return hk::ResultSuccess();
 }
 
 } // namespace byml

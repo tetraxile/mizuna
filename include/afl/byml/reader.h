@@ -8,8 +8,8 @@ namespace byml {
 class Reader {
 public:
 	Reader();
-	result_t init(const u8* fileData);
-	result_t init(const Reader& other, const u32 offset);
+	hk::Result init(const u8* fileData);
+	hk::Result init(const Reader& other, const u32 offset);
 
 	const std::string getHashString(u32 idx) const;
 	const std::string getValueString(u32 idx) const;
@@ -20,29 +20,29 @@ public:
 	u32 getSize() const;
 	bool hasKey(const std::string& key) const;
 
-	result_t getTypeByIdx(NodeType* type, u32 idx) const;
-	result_t getTypeByKey(NodeType* type, const std::string& key) const;
+	hk::Result getTypeByIdx(NodeType* type, u32 idx) const;
+	hk::Result getTypeByKey(NodeType* type, const std::string& key) const;
 	const std::string getKeyByIdx(u32 idx) const;
 
-	result_t getContainerByIdx(Reader* container, u32 idx) const;
-	result_t getStringByIdx(std::string* out, u32 idx) const;
-	result_t getBoolByIdx(bool* out, u32 idx) const;
-	result_t getS32ByIdx(s32* out, u32 idx) const;
-	result_t getF32ByIdx(f32* out, u32 idx) const;
-	result_t getU32ByIdx(u32* out, u32 idx) const;
-	result_t getS64ByIdx(s64* out, u32 idx) const;
-	result_t getF64ByIdx(f64* out, u32 idx) const;
-	result_t getU64ByIdx(u64* out, u32 idx) const;
+	hk::Result getContainerByIdx(Reader* container, u32 idx) const;
+	hk::Result getStringByIdx(std::string* out, u32 idx) const;
+	hk::Result getBoolByIdx(bool* out, u32 idx) const;
+	hk::Result getS32ByIdx(s32* out, u32 idx) const;
+	hk::Result getF32ByIdx(f32* out, u32 idx) const;
+	hk::Result getU32ByIdx(u32* out, u32 idx) const;
+	hk::Result getS64ByIdx(s64* out, u32 idx) const;
+	hk::Result getF64ByIdx(f64* out, u32 idx) const;
+	hk::Result getU64ByIdx(u64* out, u32 idx) const;
 
-	result_t getContainerByKey(Reader* container, const std::string& key) const;
-	result_t getStringByKey(std::string* out, const std::string& key) const;
-	result_t getBoolByKey(bool* out, const std::string& key) const;
-	result_t getS32ByKey(s32* out, const std::string& key) const;
-	result_t getF32ByKey(f32* out, const std::string& key) const;
-	result_t getU32ByKey(u32* out, const std::string& key) const;
-	result_t getS64ByKey(s64* out, const std::string& key) const;
-	result_t getF64ByKey(f64* out, const std::string& key) const;
-	result_t getU64ByKey(u64* out, const std::string& key) const;
+	hk::Result getContainerByKey(Reader* container, const std::string& key) const;
+	hk::Result getStringByKey(std::string* out, const std::string& key) const;
+	hk::Result getBoolByKey(bool* out, const std::string& key) const;
+	hk::Result getS32ByKey(s32* out, const std::string& key) const;
+	hk::Result getF32ByKey(f32* out, const std::string& key) const;
+	hk::Result getU32ByKey(u32* out, const std::string& key) const;
+	hk::Result getS64ByKey(s64* out, const std::string& key) const;
+	hk::Result getF64ByKey(f64* out, const std::string& key) const;
+	hk::Result getU64ByKey(u64* out, const std::string& key) const;
 
 	bool tryGetContainerByIdx(Reader* container, u32 idx) const {
 		return getContainerByIdx(container, idx) ? false : true;
@@ -114,12 +114,12 @@ private:
 		u32 mStringValueTableSize = 0;
 	};
 
-	result_t initHeader();
+	hk::Result initHeader();
 	void initKeyOrder();
 
-	result_t getNodeByKey(const u8** offset, const std::string& key, NodeType expectedType) const;
-	result_t getNodeByIdx(const u8** offset, u32 idx, NodeType expectedType) const;
-	result_t getContainerOffsets(const u8** typeOffset, const u8** valueOffset, u32 idx) const;
+	hk::Result getNodeByKey(const u8** offset, const std::string& key, NodeType expectedType) const;
+	hk::Result getNodeByIdx(const u8** offset, u32 idx, NodeType expectedType) const;
+	hk::Result getContainerOffsets(const u8** typeOffset, const u8** valueOffset, u32 idx) const;
 
 	const u8* mFileData = nullptr;
 	const u8* mOffset = nullptr;

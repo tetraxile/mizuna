@@ -1,6 +1,8 @@
 #pragma once
 
-#include "afl/types.h"
+#include <hk/types.h>
+
+#include "results.h"
 
 namespace byml {
 
@@ -17,15 +19,6 @@ enum class NodeType : u8 {
 	U64 = 0xd5,
 	F64 = 0xd6,
 	Null = 0xff,
-};
-
-enum Error : result_t {
-	WrongNodeType = 0x101,
-	InvalidKey = 0x102,
-	OutOfBounds = 0x103,
-	EmptyStack = 0x104,
-	FullStack = 0x105,
-	InvalidVersion = 0x106,
 };
 
 } // namespace byml

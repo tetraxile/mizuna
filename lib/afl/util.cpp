@@ -1,11 +1,12 @@
 #include "afl/util.h"
 
 #include <bit>
-#include <cassert>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iterator>
+
+#include "afl/results.h"
 
 namespace util {
 u16 bswap16(u16 value) {
@@ -26,11 +27,11 @@ u32 roundUp(u32 x, u32 powerOf2) {
 	return (x + a) & ~a;
 }
 
-result_t readFile(std::vector<u8>& contents, const fs::path& filename) {
+hk::Result readFile(std::vector<u8>& contents, const fs::path& filename) {
 	std::ifstream fstream(filename, std::ios::binary);
 
 	if (fstream.eof() || fstream.fail()) {
-		return Error::FileError;
+		return ResultFileError();
 	}
 
 	// disable skipping whitespace in binary file
@@ -47,7 +48,7 @@ result_t readFile(std::vector<u8>& contents, const fs::path& filename) {
 
 	fstream.close();
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 void writeFile(const fs::path& filename, const std::vector<u8>& contents) {
@@ -63,23 +64,23 @@ void writeFile(const fs::path& filename, const std::string& contents) {
 } // namespace util
 
 namespace reader {
-result_t readByteOrder(util::ByteOrder* out, const u8* offset, u16 expectedBE) {
+hk::Result readByteOrder(util::ByteOrder* out, const u8* offset, u16 expectedBE) {
 	u16 mark = (offset[0] << 8) | offset[1];
 	if (mark == expectedBE)
 		*out = util::ByteOrder::Big;
 	else if (mark == util::bswap16(expectedBE))
 		*out = util::ByteOrder::Little;
 	else
-		return util::Error::BadByteOrder;
+		return ResultBadByteOrder();
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t checkSignature(const u8* offset, const std::string& expected, size_t length) {
+hk::Result checkSignature(const u8* offset, const std::string& expected, size_t length) {
 	for (size_t i = 0; i < length; i++)
-		if (offset[i] != expected[i]) return util::Error::BadSignature;
+		if (offset[i] != expected[i]) return ResultBadSignature();
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 u8 readU8(const u8* offset) {
@@ -237,8 +238,8 @@ const std::string readString(const u8* offset, size_t length) {
 }
 
 std::vector<u8> readBytes(const u8* offset, size_t size) {
-	std::vector<u8> section(offset, offset + size);
-	return section;
+	std::vector<u8> slice(offset, offset + size);
+	return slice;
 }
 } // namespace reader
 

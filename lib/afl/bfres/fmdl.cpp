@@ -1,11 +1,9 @@
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
 
 namespace bfres {
 
-result_t FMDL::read(const u8* offset) {
-	result_t r;
-	r = readHeader(offset, "FMDL");
-	if (r) return r;
+hk::Result FMDL::read(const u8* offset) {
+	HK_TRY(readHeader(offset, "FMDL"));
 
 	mName = readString(offset + 0x10);
 	mPathName = readString(offset + 0x18);
@@ -35,8 +33,7 @@ result_t FMDL::read(const u8* offset) {
 		printf("\tentries:\n");
 		for (u16 i = 0; i < vtxBufCount; i++) {
 			FVTX* vtxBuffer = new FVTX(mFile, mBase, mByteOrder);
-			r = vtxBuffer->read(mBase + vtxBufOffset + i * FVTX::cSize);
-			if (r) return r;
+			HK_TRY(vtxBuffer->read(mBase + vtxBufOffset + i * FVTX::cSize));
 			mVtxBuffers.push_back(vtxBuffer);
 		}
 		printf("\n");
@@ -46,8 +43,7 @@ result_t FMDL::read(const u8* offset) {
 		printf("\tshapes: %d (%#lx, %#lx)\n", shpCount, shpArrayOffset, shpDictOffset);
 		printf("\tentries:\n");
 		mShapes = new Dict<FSHP>(mFile, mBase, mByteOrder);
-		r = mShapes->read(shpDictOffset, shpArrayOffset);
-		if (r) return r;
+		HK_TRY(mShapes->read(shpDictOffset, shpArrayOffset));
 		printf("\n");
 	}
 
@@ -55,12 +51,11 @@ result_t FMDL::read(const u8* offset) {
 		printf("\tmaterials: %d (%#lx, %#lx)\n", matCount, matArrayOffset, matDictOffset);
 		printf("\tentries:\n");
 		mMaterials = new Dict<FMAT>(mFile, mBase, mByteOrder);
-		r = mMaterials->read(matDictOffset, matArrayOffset);
-		if (r) return r;
+		HK_TRY(mMaterials->read(matDictOffset, matArrayOffset));
 		printf("\n");
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 } // namespace bfres

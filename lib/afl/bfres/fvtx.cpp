@@ -1,11 +1,9 @@
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
 
 namespace bfres {
 
-result_t FVTX::read(const u8* offset) {
-	result_t r;
-	r = readHeader(offset, "FVTX");
-	if (r) return r;
+hk::Result FVTX::read(const u8* offset) {
+	HK_TRY(readHeader(offset, "FVTX"));
 
 	u64 attrArrayOffset = reader::readU64(offset + 0x10, mByteOrder);
 	u64 attrDictOffset = reader::readU64(offset + 0x18, mByteOrder);
@@ -44,10 +42,10 @@ result_t FVTX::read(const u8* offset) {
 		mAttrs->read(attrDictOffset, attrArrayOffset);
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t VertexAttribute::read(const u8* offset) {
+hk::Result VertexAttribute::read(const u8* offset) {
 	mName = readString(offset);
 	mFormat = AttributeFormat(reader::readU32(offset + 0x8, mByteOrder));
 	mBufferOffset = reader::readU16(offset + 0xc, mByteOrder);
@@ -61,7 +59,7 @@ result_t VertexAttribute::read(const u8* offset) {
 	printf("\t\t\tis dynamic?: %s\n", mIsDynamic ? "true" : "false");
 	printf("\n");
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 } // namespace bfres
