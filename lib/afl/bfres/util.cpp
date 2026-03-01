@@ -1,20 +1,18 @@
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
+#include "afl/bfres/results.h"
 
 namespace bfres {
 
-result_t BufferInfo::read(const u8* offset) {
+hk::Result BufferInfo::read(const u8* offset) {
 	u32 unk = reader::readU32(offset, mByteOrder);
 	mBufferSize = reader::readU32(offset + 0x4, mByteOrder);
 	mBufferOffset = reader::readU64(offset + 0x8, mByteOrder);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t DataNode::readHeader(const u8* offset, const std::string& signature) {
-	result_t r;
-
-	r = reader::checkSignature(offset, signature, signature.length());
-	if (r) return r;
+hk::Result DataNode::readHeader(const u8* offset, const std::string& signature) {
+	HK_TRY(reader::checkSignature(offset, signature, signature.length()));
 
 	u32 nextBlockOffset = reader::readU32(offset + 0x4, mByteOrder);
 	u32 blockSize = reader::readU32(offset + 0x8, mByteOrder);
@@ -23,7 +21,7 @@ result_t DataNode::readHeader(const u8* offset, const std::string& signature) {
 	// 	printf("info: %s block size %x (expected %x)\n", signature.c_str(), blockSize, size());
 	// }
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 std::string DataNode::readString(const u8* offset) {
@@ -179,165 +177,165 @@ u32 getAttrFormatSize(AttributeFormat fmt) {
 	}
 }
 
-result_t readAttrFormat(
-	Vector4f* out, const u8* offset, AttributeFormat fmt, util::ByteOrder byteOrder
+hk::Result readAttrFormat(
+	hk::util::Vector4f* out, const u8* offset, AttributeFormat fmt, util::ByteOrder byteOrder
 ) {
 	*out = { 0, 0, 0, 0 };
 
 	switch (fmt) {
 	case AttributeFormat::Format_8_UNorm: {
 		out->x = (f32)reader::readU8(offset) / 255.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_UInt: {
 		out->x = (f32)reader::readU8(offset);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_SNorm: {
 		out->x = (f32)reader::readS8(offset) / 127.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_SInt: {
 		out->x = (f32)reader::readS8(offset);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_UIntToSingle: {
 		out->x = (f32)reader::readU8(offset);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_SIntToSingle: {
 		out->x = (f32)reader::readS8(offset);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_4_4_UNorm: {
 		u32 p = reader::readU8(offset);
 		out->x = (f32)(p & 0xf) / 16.0f;
 		out->y = (f32)((p >> 4) & 0xf) / 16.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_UNorm: {
 		out->x = (f32)reader::readU16(offset, byteOrder) / 65535.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_UInt: {
 		out->x = (f32)reader::readU16(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_SNorm: {
 		out->x = (f32)reader::readS16(offset, byteOrder) / 32767.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_SInt: {
 		out->x = (f32)reader::readS16(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_Single: {
 		out->x = (f32)reader::readF16(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_UIntToSingle: {
 		out->x = (f32)reader::readU16(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_SIntToSingle: {
 		out->x = (f32)reader::readS16(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_UNorm: {
 		out->x = (f32)reader::readU8(offset) / 255.0f;
 		out->y = (f32)reader::readU8(offset + 1) / 255.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_UInt: {
 		out->x = (f32)reader::readU8(offset);
 		out->y = (f32)reader::readU8(offset + 1);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_SNorm: {
 		out->x = (f32)reader::readS8(offset) / 127.0f;
 		out->y = (f32)reader::readS8(offset + 1) / 127.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_SInt: {
 		out->x = (f32)reader::readS8(offset);
 		out->y = (f32)reader::readS8(offset + 1);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_UIntToSingle: {
 		out->x = (f32)reader::readU8(offset);
 		out->y = (f32)reader::readU8(offset + 1);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_SIntToSingle: {
 		out->x = (f32)reader::readS8(offset);
 		out->y = (f32)reader::readS8(offset + 1);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_UNorm: {
 		out->x = (f32)reader::readU16(offset, byteOrder) / 65535.0f;
 		out->y = (f32)reader::readU16(offset + 2, byteOrder) / 65535.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_UInt: {
 		out->x = (f32)reader::readU16(offset, byteOrder);
 		out->y = (f32)reader::readU16(offset + 2, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_SNorm: {
 		out->x = (f32)reader::readS16(offset, byteOrder) / 32767.0f;
 		out->y = (f32)reader::readS16(offset + 2, byteOrder) / 32767.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_SInt: {
 		out->x = (f32)reader::readS16(offset, byteOrder);
 		out->y = (f32)reader::readS16(offset + 2, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_Single: {
 		out->x = (f32)reader::readF16(offset, byteOrder);
 		out->y = (f32)reader::readF16(offset + 2, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_UIntToSingle: {
 		out->x = (f32)reader::readU16(offset, byteOrder);
 		out->y = (f32)reader::readU16(offset + 2, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_SIntToSingle: {
 		out->x = (f32)reader::readS16(offset, byteOrder);
 		out->y = (f32)reader::readS16(offset + 2, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_10_11_11_Single: {
 		fprintf(stderr, "error: unsupported vertex attribute format (10_11_11_Single)");
-		return 1;
+		return ResultInvalidVertexAttribute();
 	}
 
 	case AttributeFormat::Format_8_8_8_8_UNorm: {
@@ -345,7 +343,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU8(offset + 1) / 255.0f;
 		out->z = (f32)reader::readU8(offset + 2) / 255.0f;
 		out->w = (f32)reader::readU8(offset + 3) / 255.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_8_8_UInt: {
@@ -353,7 +351,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU8(offset + 1);
 		out->z = (f32)reader::readU8(offset + 2);
 		out->w = (f32)reader::readU8(offset + 3);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_8_8_SNorm: {
@@ -361,7 +359,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS8(offset + 1) / 127.0f;
 		out->z = (f32)reader::readS8(offset + 2) / 127.0f;
 		out->w = (f32)reader::readS8(offset + 3) / 127.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_8_8_SInt: {
@@ -369,7 +367,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS8(offset + 1);
 		out->z = (f32)reader::readS8(offset + 2);
 		out->w = (f32)reader::readS8(offset + 3);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_8_8_UIntToSingle: {
@@ -377,7 +375,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU8(offset + 1);
 		out->z = (f32)reader::readU8(offset + 2);
 		out->w = (f32)reader::readU8(offset + 3);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_8_8_8_8_SIntToSingle: {
@@ -385,7 +383,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS8(offset + 1);
 		out->z = (f32)reader::readS8(offset + 2);
 		out->w = (f32)reader::readS8(offset + 3);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_10_10_10_2_UNorm: {
@@ -394,7 +392,7 @@ result_t readAttrFormat(
 		out->y = (f32)((p >> 10) & 0x3ff) / 1024.0f;
 		out->z = (f32)((p >> 20) & 0x3ff) / 1024.0f;
 		out->w = p >> 30;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_10_10_10_2_UInt: {
@@ -403,7 +401,7 @@ result_t readAttrFormat(
 		out->y = (f32)((p >> 10) & 0x3ff);
 		out->z = (f32)((p >> 20) & 0x3ff);
 		out->w = p >> 30;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_10_10_10_2_SNorm: {
@@ -416,7 +414,7 @@ result_t readAttrFormat(
 		out->y = (f32)(s.x = (p >> 10) & 0x3ff) / 511.0f;
 		out->z = (f32)(s.x = (p >> 20) & 0x3ff) / 511.0f;
 		out->w = p >> 30;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_10_10_10_2_SInt: {
@@ -429,22 +427,22 @@ result_t readAttrFormat(
 		out->y = (f32)(s.x = (p >> 10) & 0x3ff);
 		out->z = (f32)(s.x = (p >> 20) & 0x3ff);
 		out->w = p >> 30;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_UInt: {
 		out->x = (f32)reader::readU32(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_SInt: {
 		out->x = (f32)reader::readS32(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_Single: {
 		out->x = reader::readF32(offset, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_UNorm: {
@@ -452,7 +450,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU16(offset + 2, byteOrder) / 65535.0f;
 		out->z = (f32)reader::readU16(offset + 4, byteOrder) / 65535.0f;
 		out->w = (f32)reader::readU16(offset + 6, byteOrder) / 65535.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_SNorm: {
@@ -460,7 +458,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS16(offset + 2, byteOrder) / 32767.0f;
 		out->z = (f32)reader::readS16(offset + 4, byteOrder) / 32767.0f;
 		out->w = (f32)reader::readS16(offset + 6, byteOrder) / 32767.0f;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_UInt: {
@@ -468,7 +466,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU16(offset + 2, byteOrder);
 		out->z = (f32)reader::readU16(offset + 4, byteOrder);
 		out->w = (f32)reader::readU16(offset + 6, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_SInt: {
@@ -476,7 +474,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS16(offset + 2, byteOrder);
 		out->z = (f32)reader::readS16(offset + 4, byteOrder);
 		out->w = (f32)reader::readS16(offset + 6, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_Single: {
@@ -484,7 +482,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readF16(offset + 2, byteOrder);
 		out->z = (f32)reader::readF16(offset + 4, byteOrder);
 		out->w = (f32)reader::readF16(offset + 6, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_UIntToSingle: {
@@ -492,7 +490,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU16(offset + 2, byteOrder);
 		out->z = (f32)reader::readU16(offset + 4, byteOrder);
 		out->w = (f32)reader::readU16(offset + 6, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_16_16_16_16_SIntToSingle: {
@@ -500,46 +498,46 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS16(offset + 2, byteOrder);
 		out->z = (f32)reader::readS16(offset + 4, byteOrder);
 		out->w = (f32)reader::readS16(offset + 6, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_UInt: {
 		out->x = (f32)reader::readU32(offset, byteOrder);
 		out->y = (f32)reader::readU32(offset + 4, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_SInt: {
 		out->x = (f32)reader::readS32(offset, byteOrder);
 		out->y = (f32)reader::readS32(offset + 4, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_Single: {
 		out->x = reader::readF32(offset, byteOrder);
 		out->y = reader::readF32(offset + 4, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_32_UInt: {
 		out->x = (f32)reader::readU32(offset, byteOrder);
 		out->y = (f32)reader::readU32(offset + 4, byteOrder);
 		out->z = (f32)reader::readU32(offset + 8, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_32_SInt: {
 		out->x = (f32)reader::readS32(offset, byteOrder);
 		out->y = (f32)reader::readS32(offset + 4, byteOrder);
 		out->z = (f32)reader::readS32(offset + 8, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_32_Single: {
 		out->x = reader::readF32(offset, byteOrder);
 		out->y = reader::readF32(offset + 4, byteOrder);
 		out->z = reader::readF32(offset + 8, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_32_32_UInt: {
@@ -547,7 +545,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readU32(offset + 4, byteOrder);
 		out->z = (f32)reader::readU32(offset + 8, byteOrder);
 		out->w = (f32)reader::readU32(offset + 12, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_32_32_SInt: {
@@ -555,7 +553,7 @@ result_t readAttrFormat(
 		out->y = (f32)reader::readS32(offset + 4, byteOrder);
 		out->z = (f32)reader::readS32(offset + 8, byteOrder);
 		out->w = (f32)reader::readS32(offset + 12, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::Format_32_32_32_32_Single: {
@@ -563,13 +561,13 @@ result_t readAttrFormat(
 		out->y = reader::readF32(offset + 4, byteOrder);
 		out->z = reader::readF32(offset + 8, byteOrder);
 		out->w = reader::readF32(offset + 12, byteOrder);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	case AttributeFormat::None:
 	default: {
 		fprintf(stderr, "error: unimplemented attribute format (%x)\n", (u16)fmt);
-		return 1;
+		return ResultInvalidAttributeFormat();
 	}
 	}
 }

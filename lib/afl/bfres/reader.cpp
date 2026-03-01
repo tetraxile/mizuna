@@ -1,26 +1,35 @@
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
+
+#include "afl/bfres/results.h"
+#include "afl/results.h"
 #include "tinygltf/tiny_gltf.h"
 
 namespace bfres {
 
-result_t Reader::read() {
-	result_t r;
-	r = readHeader(mBase);
-	if (r) return r;
+hk::Result Reader::read() {
+	HK_TRY(readHeader(mBase));
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::readHeader(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "FRES    ", 8);
-	if (r) return r;
+hk::Result Reader::readHeader(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "FRES    ", 8));
 
 	u32 version = reader::readU32(offset + 8, util::ByteOrder::Big);
-	assert(version == 0x00000800);
 
-	r = reader::readByteOrder(&mByteOrder, offset + 0xc, 0xFEFF);
-	if (r) return r;
+	if (version != 0x00000800) {
+		u16 major = version >> 16;
+		u8 minor = version >> 8;
+		u8 micro = version;
+
+		fprintf(
+			stderr, "error: unsupported BFRES version (got: %d.%d.%d, expected: 8.0.0)\n", major,
+			minor, micro
+		);
+		return ResultUnimplementedVersion();
+	}
+
+	HK_TRY(reader::readByteOrder(&mByteOrder, offset + 0xc, 0xFEFF));
 
 	u8 alignment = reader::readU8(offset + 0xe);
 	u8 targetAddrSize = reader::readU8(offset + 0xf);
@@ -75,16 +84,14 @@ result_t Reader::readHeader(const u8* offset) {
 	if (bufferInfoOffset) {
 		printf("buffer info offset: %lx\n", bufferInfoOffset);
 		mBufferInfo = new BufferInfo(this, mBase, mByteOrder);
-		r = mBufferInfo->read(mBase + bufferInfoOffset);
-		if (r) return r;
+		HK_TRY(mBufferInfo->read(mBase + bufferInfoOffset));
 	}
 
 	if (modelCount) {
 		printf("models offset: %lx %lx\n", modelArrayOffset, modelDictOffset);
 		printf("models: %d\n", modelCount);
 		mModels = new Dict<FMDL>(this, mBase, mByteOrder);
-		r = mModels->read(modelDictOffset, modelArrayOffset);
-		if (r) return r;
+		HK_TRY(mModels->read(modelDictOffset, modelArrayOffset));
 		printf("\n");
 	}
 
@@ -161,12 +168,10 @@ result_t Reader::readHeader(const u8* offset) {
 	}
 #endif
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::exportGLTF(const fs::path& output) {
-	result_t r;
-
+hk::Result Reader::exportGLTF(const fs::path& output) {
 	const std::string& fileExt = output.extension().string();
 	bool isBinary;
 	if (util::isEqual(fileExt, ".glb"))
@@ -175,7 +180,7 @@ result_t Reader::exportGLTF(const fs::path& output) {
 		isBinary = false;
 	else {
 		fprintf(stderr, "error: invalid file extension (expected .glb or .gltf)\n");
-		return 1;
+		return ResultInvalidFileExtension();
 	}
 
 	const std::array<u32, 4> accessorTypes = { TINYGLTF_TYPE_SCALAR, TINYGLTF_TYPE_VEC2,
@@ -271,7 +276,7 @@ result_t Reader::exportGLTF(const fs::path& output) {
 				fprintf(
 					stderr, "error: unimplemented vertex attribute '%s'\n", attr->getName().c_str()
 				);
-				return 1;
+				return ResultInvalidVertexAttribute();
 			}
 
 			primitive.attributes[attrName] = m.accessors.size();
@@ -293,9 +298,8 @@ result_t Reader::exportGLTF(const fs::path& output) {
 			buffer.data.reserve(buffer.data.size() + bufLen);
 			for (u32 v = 0; v < buf->mCount; v++) {
 				const u8* vtxOffset = buf->mOffset + v * buf->mStride;
-				Vector4f data;
-				r = readAttrFormat(&data, vtxOffset, attr->mFormat, mByteOrder);
-				if (r) return r;
+				hk::util::Vector4f data;
+				HK_TRY(readAttrFormat(&data, vtxOffset, attr->mFormat, mByteOrder));
 
 				writer::writeF32(buffer.data, curOffset, data.x, mByteOrder);
 				if (size > 1) writer::writeF32(buffer.data, curOffset + 4, data.y, mByteOrder);
@@ -326,7 +330,7 @@ result_t Reader::exportGLTF(const fs::path& output) {
 	tinygltf::TinyGLTF gltf;
 	gltf.WriteGltfSceneToFile(&m, output.string(), true, true, true, isBinary);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 } // namespace bfres

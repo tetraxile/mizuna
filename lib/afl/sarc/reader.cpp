@@ -1,48 +1,49 @@
 #include "afl/sarc/reader.h"
 
-#include <cassert>
 #include <filesystem>
+
+#include "afl/results.h"
 
 namespace sarc {
 
-result_t Reader::init() {
-	result_t r;
-	r = initHeader(&mContents[0]);
-	if (r) return r;
+hk::Result Reader::init() {
+	HK_TRY(initHeader(&mContents[0]));
 
-	r = readSFAT(&mContents[0x14]);
-	if (r) return r;
+	HK_TRY(readSFAT(&mContents[0x14]));
 
-	r = readSFNT(&mContents[0x14 + 0xc + 0x10 * mFiles.size()]);
-	if (r) return r;
+	HK_TRY(readSFNT(&mContents[0x14 + 0xc + 0x10 * mFiles.size()]));
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::initHeader(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "SARC", 4);
-	if (r) return r;
+hk::Result Reader::initHeader(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "SARC", 4));
 
 	u16 headerSize = reader::readU16(offset + 4, util::ByteOrder::Little);
-	r = reader::readByteOrder(&mHeader.mByteOrder, offset + 6, 0xFEFF);
-	if (r) return r;
+	HK_TRY(reader::readByteOrder(&mHeader.mByteOrder, offset + 6, 0xFEFF));
 
 	mHeader.mFileSize = reader::readU32(offset + 8, mHeader.mByteOrder);
 	mHeader.mDataOffset = reader::readU32(offset + 0xc, mHeader.mByteOrder);
 	mHeader.mVersion = reader::readU16(offset + 0x10, mHeader.mByteOrder);
-	assert(mHeader.mVersion == 0x100);
 	// 2 padding bytes
 
-	return 0;
+	if (mHeader.mVersion != 0x100) {
+		u8 major = mHeader.mVersion;
+		u8 minor = mHeader.mVersion >> 8;
+
+		fprintf(
+			stderr, "error: unsupported SARC version (got: %d.%d, expected: 1.0)\n", major, minor
+		);
+		return ResultUnimplementedVersion();
+	}
+
+	return hk::ResultSuccess();
 }
 
-result_t Reader::readSFAT(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "SFAT", 4);
-	if (r) return r;
+hk::Result Reader::readSFAT(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "SFAT", 4));
 	u16 headerSize = reader::readU16(offset + 4, mHeader.mByteOrder);
-	assert(headerSize == 0xc);
+	if (headerSize != 0xc) return ResultHeaderSizeMismatch();
 	u16 nodeCount = reader::readU16(offset + 6, mHeader.mByteOrder);
 	u32 hashKey = reader::readU32(offset + 8, mHeader.mByteOrder);
 
@@ -57,14 +58,13 @@ result_t Reader::readSFAT(const u8* offset) {
 		mFiles.push_back(file);
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::readSFNT(const u8* offset) {
-	result_t r = reader::checkSignature(offset, "SFNT", 4);
-	if (r) return r;
+hk::Result Reader::readSFNT(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "SFNT", 4));
 	u16 headerSize = reader::readU16(offset + 4, mHeader.mByteOrder);
-	assert(headerSize == 0x8);
+	if (headerSize != 0x8) return ResultHeaderSizeMismatch();
 
 	const u8* nameTableOffset = offset + 8;
 	for (File& file : mFiles) {
@@ -74,7 +74,7 @@ result_t Reader::readSFNT(const u8* offset) {
 		}
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 const std::set<std::string> Reader::getFilenames() {
@@ -85,7 +85,7 @@ const std::set<std::string> Reader::getFilenames() {
 	return filenames;
 }
 
-result_t Reader::saveFile(const std::string& outDir, const std::string& filename) {
+hk::Result Reader::saveFile(const std::string& outDir, const std::string& filename) {
 	fs::path basePath(outDir);
 	fs::create_directory(basePath);
 
@@ -99,15 +99,13 @@ result_t Reader::saveFile(const std::string& outDir, const std::string& filename
 		u32 size = file.mEndOffset - file.mStartOffset;
 		std::vector<u8> contents = reader::readBytes(offset, size);
 		util::writeFile(basePath / file.mName, contents);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
-	return util::Error::FileNotFound;
+	return ResultFileNotFound();
 }
 
-result_t Reader::saveAll(const std::string& outDir) {
-	result_t r;
-
+hk::Result Reader::saveAll(const std::string& outDir) {
 	fs::path basePath(outDir);
 	fs::create_directory(basePath);
 
@@ -121,31 +119,31 @@ result_t Reader::saveAll(const std::string& outDir) {
 		util::writeFile(filePath, contents);
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Reader::getFileData(std::vector<u8>& out, const std::string& filename) {
+hk::Result Reader::getFileData(std::vector<u8>& out, const std::string& filename) {
 	for (const File& file : mFiles) {
 		if (!util::isEqual(file.mName, filename)) continue;
 
 		const u8* offset = &mContents[0] + mHeader.mDataOffset + file.mStartOffset;
 		u32 size = file.mEndOffset - file.mStartOffset;
 		out = reader::readBytes(offset, size);
-		return 0;
+		return hk::ResultSuccess();
 	}
 
-	return util::Error::FileNotFound;
+	return ResultFileNotFound();
 }
 
-result_t Reader::getFileSize(u32* out, const std::string& filename) {
+hk::Result Reader::getFileSize(u32* out, const std::string& filename) {
 	for (const File& file : mFiles) {
 		if (!util::isEqual(file.mName, filename)) continue;
 
 		*out = file.mEndOffset - file.mStartOffset;
-		return 0;
+		return hk::ResultSuccess();
 	}
 
-	return util::Error::FileNotFound;
+	return ResultFileNotFound();
 }
 
 } // namespace sarc

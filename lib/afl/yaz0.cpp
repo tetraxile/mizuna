@@ -4,17 +4,16 @@
 #include "afl/yaz0.h"
 
 #include <algorithm>
-#include <cstdio>
 
-#include "afl/types.h"
+#include "afl/results.h"
 #include "afl/util.h"
 
 namespace yaz0 {
 
-result_t decompress(std::vector<u8>& output, const std::vector<u8>& input) {
+hk::Result decompress(std::vector<u8>& output, const std::vector<u8>& input) {
 	u8 magic[4] = { input[0], input[1], input[2], input[3] };
 	if (magic[0] != 'Y' || magic[1] != 'a' || magic[2] != 'z' || magic[3] != '0') {
-		return util::Error::BadSignature;
+		return ResultBadSignature();
 	}
 
 	u32 uncompressedSize = reader::readU32(&input[4], util::ByteOrder::Big);
@@ -53,7 +52,7 @@ result_t decompress(std::vector<u8>& output, const std::vector<u8>& input) {
 		}
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 void compress(std::vector<u8>& output, const std::vector<u8>& input, u32 alignment) {

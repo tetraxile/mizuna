@@ -1,11 +1,9 @@
-#include "afl/bfres.h"
+#include "afl/bfres/reader.h"
 
 namespace bfres {
 
-result_t FMAT::read(const u8* offset) {
-	result_t r;
-	r = readHeader(offset, "FMAT");
-	if (r) return r;
+hk::Result FMAT::read(const u8* offset) {
+	HK_TRY(readHeader(offset, "FMAT"));
 
 	mName = readString(offset + 0x10);
 	u64 renderInfoArrayOffset = reader::readU64(offset + 0x18, mByteOrder);
@@ -40,14 +38,12 @@ result_t FMAT::read(const u8* offset) {
 
 	printf("\t\tshader assign offset: %lx\n", shaderAssignOffset);
 	mShaderAssign = new ShaderAssign(mFile, mBase, mByteOrder);
-	r = mShaderAssign->read(mBase + shaderAssignOffset);
-	if (r) return r;
+	HK_TRY(mShaderAssign->read(mBase + shaderAssignOffset));
 
 	printf("\t\trender info: %d\n", renderInfoCount);
 	if (renderInfoDictOffset) {
 		mRenderInfos = new Dict<RenderInfo>(mFile, mBase, mByteOrder);
-		r = mRenderInfos->read(renderInfoDictOffset, renderInfoArrayOffset);
-		if (r) return r;
+		HK_TRY(mRenderInfos->read(renderInfoDictOffset, renderInfoArrayOffset));
 		mRenderInfos->print(3);
 	}
 
@@ -55,16 +51,14 @@ result_t FMAT::read(const u8* offset) {
 	printf("\t\tsampler slot array offset: %lx\n", samplerSlotArrayOffset);
 	if (samplerCount) {
 		mSamplers = new Dict<Sampler>(mFile, mBase, mByteOrder);
-		r = mSamplers->read(samplerDictOffset, samplerArrayOffset1);
-		if (r) return r;
+		HK_TRY(mSamplers->read(samplerDictOffset, samplerArrayOffset1));
 	}
 
 	printf("\t\tshader params: %d\n", shaderParamCount);
 	printf("\t\tvolatile flags: %lx %d\n", volatileFlagsOffset, shaderParamVolatileCount);
 	if (shaderParamCount) {
 		mShaderParams = new Dict<ShaderParam>(mFile, mBase, mByteOrder);
-		r = mShaderParams->read(shaderParamDictOffset, shaderParamArrayOffset);
-		if (r) return r;
+		HK_TRY(mShaderParams->read(shaderParamDictOffset, shaderParamArrayOffset));
 	}
 
 	printf("\t\ttextureArrayOffset: %lx\n", textureArrayOffset);
@@ -85,10 +79,10 @@ result_t FMAT::read(const u8* offset) {
 	printf("\t\tuserPointer: %lx\n", userPointer);
 	printf("\t\tuserDataCount: %d\n", userDataCount);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t ShaderAssign::read(const u8* offset) {
+hk::Result ShaderAssign::read(const u8* offset) {
 	mShaderArcName = readString(offset);
 	mShadingModelName = readString(offset + 0x8);
 	u64 attrAssignsArrayOffset = reader::readU64(offset + 0x10, mByteOrder);
@@ -127,10 +121,10 @@ result_t ShaderAssign::read(const u8* offset) {
 		// mShaderOptions->print(4);
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t RenderInfo::read(const u8* offset) {
+hk::Result RenderInfo::read(const u8* offset) {
 	mName = readString(offset);
 	u64 dataOffset = reader::readU64(offset + 0x8, mByteOrder);
 	u16 dataCount = reader::readU16(offset + 0x10, mByteOrder);
@@ -146,10 +140,10 @@ result_t RenderInfo::read(const u8* offset) {
 			mData.push_back(new DataStr(readString(start + i * String::cSize)));
 	}
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t Sampler::read(const u8* offset) {
+hk::Result Sampler::read(const u8* offset) {
 	WrapMode wrapModeU = WrapMode(reader::readU8(offset));
 	WrapMode wrapModeV = WrapMode(reader::readU8(offset + 1));
 	WrapMode wrapModeW = WrapMode(reader::readU8(offset + 2));
@@ -161,10 +155,10 @@ result_t Sampler::read(const u8* offset) {
 	f32 maxLOD = reader::readF32(offset + 0xc, mByteOrder);
 	f32 lodBias = reader::readF32(offset + 0x10, mByteOrder);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t ShaderParam::read(const u8* offset) {
+hk::Result ShaderParam::read(const u8* offset) {
 	u64 callbackOffset = reader::readU64(offset, mByteOrder);
 	mName = readString(offset + 8);
 	u8 dataType = reader::readU8(offset + 0x10);
@@ -183,7 +177,7 @@ result_t ShaderParam::read(const u8* offset) {
 	printf("dependedIndex: %d\n", dependedIndex);
 	printf("dependIndex: %d\n", dependIndex);
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
 } // namespace bfres

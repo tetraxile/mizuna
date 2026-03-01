@@ -2,22 +2,16 @@
 
 #include <cstdio>
 
-result_t BNTX::read() {
-	result_t r;
-	r = readHeader(&mContents[0]);
-	if (r) return r;
+hk::Result BNTX::read() {
+	HK_TRY(readHeader(&mContents[0]));
 
-	return 0;
+	return hk::ResultSuccess();
 }
 
-result_t BNTX::readHeader(const u8* offset) {
-	result_t r;
-	r = reader::checkSignature(offset, "BNTX\0\0\0\0", 8);
-	if (r) return r;
-
+hk::Result BNTX::readHeader(const u8* offset) {
+	HK_TRY(reader::checkSignature(offset, "BNTX\0\0\0\0", 8));
 	u32 version = reader::readU32(offset + 8, util::ByteOrder::Big);
-	r = reader::readByteOrder(&mByteOrder, offset + 0xc, 0xFEFF);
-	if (r) return r;
+	HK_TRY(reader::readByteOrder(&mByteOrder, offset + 0xc, 0xFEFF));
 	u8 alignment = reader::readU8(offset + 0xe);
 	u8 targetAddrSize = reader::readU8(offset + 0xf);
 	u32 filenameOffset = reader::readU32(offset + 0x10, mByteOrder);
@@ -26,5 +20,5 @@ result_t BNTX::readHeader(const u8* offset) {
 	u32 relocTableOffset = reader::readU32(offset + 0x18, mByteOrder);
 	u32 fileSize = reader::readU32(offset + 0x1c, mByteOrder);
 
-	return 0;
+	return hk::ResultSuccess();
 }

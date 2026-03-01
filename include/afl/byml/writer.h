@@ -219,35 +219,35 @@ public:
 	void saveToVec(std::vector<u8>& out, util::ByteOrder byteOrder = util::ByteOrder::Little);
 	void save(const std::string& filename, util::ByteOrder byteOrder = util::ByteOrder::Little);
 
-	result_t pushArray();
-	result_t pushHash();
-	result_t pushArray(const std::string& key);
-	result_t pushHash(const std::string& key);
-	result_t pop();
+	hk::Result pushArray();
+	hk::Result pushHash();
+	hk::Result pushArray(const std::string& key);
+	hk::Result pushHash(const std::string& key);
+	hk::Result pop();
 
-	result_t addString(const std::string& value);
-	result_t addBool(bool value);
-	result_t addS32(s32 value);
-	result_t addF32(f32 value);
-	result_t addU32(u32 value);
-	result_t addS64(s64 value);
-	result_t addU64(u64 value);
-	result_t addF64(f64 value);
-	result_t addNull();
+	hk::Result addString(const std::string& value);
+	hk::Result addBool(bool value);
+	hk::Result addS32(s32 value);
+	hk::Result addF32(f32 value);
+	hk::Result addU32(u32 value);
+	hk::Result addS64(s64 value);
+	hk::Result addU64(u64 value);
+	hk::Result addF64(f64 value);
+	hk::Result addNull();
 
-	result_t addString(const std::string& key, const std::string& value);
-	result_t addBool(const std::string& key, bool value);
-	result_t addS32(const std::string& key, s32 value);
-	result_t addF32(const std::string& key, f32 value);
-	result_t addU32(const std::string& key, u32 value);
-	result_t addS64(const std::string& key, s64 value);
-	result_t addU64(const std::string& key, u64 value);
-	result_t addF64(const std::string& key, f64 value);
-	result_t addNull(const std::string& key);
+	hk::Result addString(const std::string& key, const std::string& value);
+	hk::Result addBool(const std::string& key, bool value);
+	hk::Result addS32(const std::string& key, s32 value);
+	hk::Result addF32(const std::string& key, f32 value);
+	hk::Result addU32(const std::string& key, u32 value);
+	hk::Result addS64(const std::string& key, s64 value);
+	hk::Result addU64(const std::string& key, u64 value);
+	hk::Result addF64(const std::string& key, f64 value);
+	hk::Result addNull(const std::string& key);
 
 private:
-	result_t addNode(Node* node);
-	result_t addNode(const std::string& key, Node* node);
+	hk::Result addNode(Node* node);
+	hk::Result addNode(const std::string& key, Node* node);
 
 	constexpr static u32 STACK_SIZE = 16;
 

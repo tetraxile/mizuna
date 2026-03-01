@@ -2,10 +2,10 @@
 
 #include <cassert>
 #include <format>
+#include <hk/util/Math.h>
 #include <vector>
 
 #include "afl/util.h"
-#include "afl/vector.h"
 
 namespace bfres {
 
@@ -126,8 +126,8 @@ enum class CompareFunc : u8 {
 	Always,
 };
 
-result_t readAttrFormat(
-	Vector4f* out, const u8* offset, AttributeFormat fmt, util::ByteOrder byteOrder
+hk::Result readAttrFormat(
+	hk::util::Vector4f* out, const u8* offset, AttributeFormat fmt, util::ByteOrder byteOrder
 );
 u32 getAttrFormatStride(AttributeFormat fmt);
 u32 getAttrFormatSize(AttributeFormat fmt);
@@ -139,12 +139,12 @@ public:
 	DataNode(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		mFile(file), mBase(base), mByteOrder(byteOrder) {}
 
-	virtual result_t read(const u8* offset) = 0;
+	virtual hk::Result read(const u8* offset) = 0;
 	virtual u32 size() const = 0;
 
 	virtual std::string toString() const { return typeid(this).name(); }
 
-	result_t readHeader(const u8* offset, const std::string& signature);
+	hk::Result readHeader(const u8* offset, const std::string& signature);
 	std::string readString(const u8* offset);
 
 protected:
@@ -179,9 +179,7 @@ public:
 	Dict(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		mFile(file), mBase(base), mByteOrder(byteOrder) {}
 
-	result_t read(u64 offset, u64 arrayOffset) {
-		result_t r;
-
+	hk::Result read(u64 offset, u64 arrayOffset) {
 		// node count excludes root node
 		s32 nodeCount = reader::readS32(mBase + offset + 0x4, mByteOrder);
 
@@ -189,14 +187,15 @@ public:
 		const u8* valuesOffset = mBase + arrayOffset;
 
 		// read root node
-		r = readNode(nodesOffset, valuesOffset, true);
+		HK_TRY(readNode(nodesOffset, valuesOffset, true));
 
 		for (s32 i = 0; i < nodeCount; i++) {
-			r = readNode(nodesOffset + (i + 1) * Node::cSize, valuesOffset + i * T::cSize, false);
-			if (r) return r;
+			HK_TRY(
+				readNode(nodesOffset + (i + 1) * Node::cSize, valuesOffset + i * T::cSize, false)
+			);
 		}
 
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	void print(s32 indent = 0) const {
@@ -213,9 +212,7 @@ public:
 	size_t getNodeCount() const { return mNodes.size(); }
 
 private:
-	result_t readNode(const u8* nodeOffset, const u8* valueOffset, bool isRoot = false) {
-		result_t r;
-
+	hk::Result readNode(const u8* nodeOffset, const u8* valueOffset, bool isRoot = false) {
 		s32 reference = reader::readS32(nodeOffset, mByteOrder);
 		u16 idxLeft = reader::readU16(nodeOffset + 0x4, mByteOrder);
 		u16 idxRight = reader::readU16(nodeOffset + 0x6, mByteOrder);
@@ -229,12 +226,11 @@ private:
 			mRootNode = new Node(reference, idxLeft, idxRight, key, nullptr);
 		} else {
 			T* value = new T(mFile, mBase, mByteOrder);
-			r = value->read(valueOffset);
-			if (r) return r;
+			HK_TRY(value->read(valueOffset));
 			mNodes.push_back(new Node(reference, idxLeft, idxRight, key, value));
 		}
 
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	const Reader* mFile;
@@ -249,10 +245,10 @@ struct String : public DataNode {
 	String(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override {
+	hk::Result read(const u8* offset) override {
 		mValue = readString(offset);
 		// printf("str: %s\n", mValue.c_str());
-		return 0;
+		return hk::ResultSuccess();
 	}
 
 	std::string toString() const override { return mValue; }
@@ -269,7 +265,7 @@ public:
 	BufferInfo(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	u32 getBufferSize() const { return mBufferSize; }
 
@@ -288,7 +284,7 @@ struct VertexAttribute : public DataNode {
 	VertexAttribute(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x10;
 
@@ -318,7 +314,7 @@ public:
 	FVTX(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x60;
 
@@ -349,7 +345,7 @@ public:
 	Mesh(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x38;
 
@@ -370,7 +366,7 @@ public:
 	FSHP(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x70;
 
@@ -426,7 +422,7 @@ public:
 	RenderInfo(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x18;
 
@@ -457,7 +453,7 @@ public:
 	ShaderAssign(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x48;
 
@@ -477,7 +473,7 @@ public:
 	Sampler(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x20;
 
@@ -489,7 +485,7 @@ public:
 	ShaderParam(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x20;
 
@@ -504,7 +500,7 @@ public:
 	FMAT(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0xb8;
 
@@ -525,7 +521,7 @@ public:
 	FMDL(const Reader* file, const u8* base, const util::ByteOrder byteOrder) :
 		DataNode(file, base, byteOrder) {}
 
-	result_t read(const u8* offset) override;
+	hk::Result read(const u8* offset) override;
 
 	const static u32 cSize = 0x78;
 
@@ -555,12 +551,11 @@ private:
 
 class Reader {
 public:
-	Reader(const std::vector<u8>& fileContents) :
-		mContents(fileContents), mBase(&mContents[0]) {}
+	Reader(const std::vector<u8>& fileContents) : mContents(fileContents), mBase(&mContents[0]) {}
 
-	result_t read();
-	result_t readHeader(const u8* offset);
-	result_t exportGLTF(const fs::path& output);
+	hk::Result read();
+	hk::Result readHeader(const u8* offset);
+	hk::Result exportGLTF(const fs::path& output);
 
 	FMDL* getModel(s32 idx) const { return mModels ? mModels->getValue(idx) : nullptr; }
 

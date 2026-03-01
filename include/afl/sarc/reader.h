@@ -25,15 +25,15 @@ public:
 
 	Reader(const std::vector<u8>& fileContents) : mContents(fileContents) {}
 
-	result_t init();
-	result_t initHeader(const u8* offset);
-	result_t readSFAT(const u8* offset);
-	result_t readSFNT(const u8* offset);
+	hk::Result init();
+	hk::Result initHeader(const u8* offset);
+	hk::Result readSFAT(const u8* offset);
+	hk::Result readSFNT(const u8* offset);
 	const std::set<std::string> getFilenames();
-	result_t saveFile(const std::string& outDir, const std::string& filename);
-	result_t saveAll(const std::string& outDir);
-	result_t getFileData(std::vector<u8>& out, const std::string& filename);
-	result_t getFileSize(u32* out, const std::string& filename);
+	hk::Result saveFile(const std::string& outDir, const std::string& filename);
+	hk::Result saveAll(const std::string& outDir);
+	hk::Result getFileData(std::vector<u8>& out, const std::string& filename);
+	hk::Result getFileSize(u32* out, const std::string& filename);
 
 private:
 	const std::vector<u8>& mContents;

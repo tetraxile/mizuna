@@ -1,8 +1,8 @@
 #pragma once
 
+#include <hk/types.h>
 #include <vector>
 
-#include "afl/types.h"
 #include "afl/util.h"
 
 class BFFNT {
@@ -59,12 +59,12 @@ public:
 
 	BFFNT(const std::vector<u8>& fileContents) : mContents(fileContents) {}
 
-	result_t read();
-	result_t readHeader(const u8* offset);
-	result_t readFINF(const u8* offset);
-	result_t readTGLP(const u8* offset);
-	result_t readCWDH(CWDH* cwdh, const u8* offset);
-	result_t readCMAP(CMAP* cmap, const u8* offset);
+	hk::Result read();
+	hk::Result readHeader(const u8* offset);
+	hk::Result readFINF(const u8* offset);
+	hk::Result readTGLP(const u8* offset);
+	hk::Result readCWDH(CWDH* cwdh, const u8* offset);
+	hk::Result readCMAP(CMAP* cmap, const u8* offset);
 
 private:
 	const std::vector<u8>& mContents;
