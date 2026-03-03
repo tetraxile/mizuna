@@ -1,3 +1,3 @@
-target_compile_options(afl PUBLIC)
+target_compile_options(mizuna PUBLIC)
 
-target_sources(afl PRIVATE diag.cpp ResultName.cpp)
+target_sources(mizuna PRIVATE diag.cpp ResultName.cpp)

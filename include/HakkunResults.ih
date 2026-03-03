@@ -1,6 +1,6 @@
-#include "afl/results.h"
-#include "afl/bfres/results.h"
-#include "afl/byml/results.h"
+#include "mizuna/results.h"
+#include "mizuna/bfres/results.h"
+#include "mizuna/byml/results.h"
 
 #if __has_include_next("HakkunResults.ih")
 #include_next "HakkunResults.ih"

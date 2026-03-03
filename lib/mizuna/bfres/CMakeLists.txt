@@ -1,0 +1,10 @@
+target_sources(mizuna
+    PRIVATE
+        dict.cpp
+        fmat.cpp
+        fmdl.cpp
+        fshp.cpp
+        fvtx.cpp
+        reader.cpp
+        util.cpp
+)

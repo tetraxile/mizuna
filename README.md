@@ -1,4 +1,4 @@
-# afl
+# mizuna
 
 A C++ library for interfacing with several Nintendo file formats.
 
