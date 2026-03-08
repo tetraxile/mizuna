@@ -1,6 +1,7 @@
 #include "mizuna/byml/reader.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cstdio>
 #include <numeric>
 
@@ -15,9 +16,10 @@ hk::Result Reader::initHeader() {
 	HK_TRY(reader::readByteOrder(&mHeader.mByteOrder, mFileData, 0x4259));
 
 	mHeader.mVersion = reader::readU16(mFileData + 2, mHeader.mByteOrder);
-	if (mHeader.mVersion != 2 && mHeader.mVersion != 3) {
+	if (mHeader.mVersion < 2 || mHeader.mVersion > 4) {
 		fprintf(
-			stderr, "error: unsupported BYML version (got: %d, expected: 2, 3)\n", mHeader.mVersion
+			stderr, "error: unsupported BYML version (got: %d, expected: 2, 3, 4)\n",
+			mHeader.mVersion
 		);
 		return ResultUnimplementedVersion();
 	}
@@ -37,14 +39,15 @@ hk::Result Reader::initHeader() {
 	return hk::ResultSuccess();
 }
 
-hk::Result Reader::init(const u8* fileData) {
+hk::Result Reader::init(const u8* fileData, const size fileSize) {
 	mFileData = fileData;
+	mFileSize = fileSize;
 
 	HK_TRY(initHeader());
 
 	if (mHeader.mRootOffset) {
 		mOffset = mFileData + mHeader.mRootOffset;
-		initKeyOrder();
+		HK_TRY(initKeyOrder());
 	}
 
 	return hk::ResultSuccess();
@@ -53,20 +56,21 @@ hk::Result Reader::init(const u8* fileData) {
 hk::Result Reader::init(const Reader& other, const u32 offset) {
 	mHeader = other.mHeader;
 	mFileData = other.mFileData;
+	mFileSize = other.mFileSize;
 	mOffset = mFileData + offset;
 
-	initKeyOrder();
+	HK_TRY(initKeyOrder());
 
 	return hk::ResultSuccess();
 }
 
-void Reader::initKeyOrder() {
-	if (getType() != NodeType::Hash) return;
+hk::Result Reader::initKeyOrder() {
+	if (HK_TRY(getType()) != NodeType::Hash) return hk::ResultSuccess();
 
 	std::vector<u32> offsets;
 	offsets.reserve(getSize());
 	for (u32 i = 0; i < getSize(); i++) {
-		NodeType type = (NodeType)reader::readU8(mOffset + 4 + i * 8 + 3);
+		NodeType type = HK_TRY(readType(mOffset + 4 + i * 8 + 3));
 		if (type == NodeType::Array || type == NodeType::Hash) {
 			u32 offset = reader::readU32(mOffset + 8 + i * 8, mHeader.mByteOrder);
 			offsets.push_back(offset);
@@ -81,14 +85,42 @@ void Reader::initKeyOrder() {
 	std::stable_sort(mKeyOrder.begin(), mKeyOrder.end(), [&offsets](size_t i1, size_t i2) {
 		return offsets.at(i1) < offsets.at(i2);
 	});
+
+	return hk::ResultSuccess();
 }
 
-NodeType Reader::getType() const {
-	return (NodeType)reader::readU8(mOffset);
+hk::ValueOrResult<NodeType> Reader::getType() const {
+	return readType(mOffset);
+}
+
+hk::ValueOrResult<NodeType> Reader::readType(const u8* offset) const {
+	assert(mFileData <= offset && offset < mFileData + mFileSize);
+
+	NodeType type = (NodeType)reader::readU8(offset);
+	switch (type) {
+	case NodeType::String:
+	case NodeType::Binary:
+	case NodeType::Array:
+	case NodeType::Hash:
+	case NodeType::StringTable:
+	case NodeType::Bool:
+	case NodeType::S32:
+	case NodeType::F32:
+	case NodeType::U32:
+	case NodeType::S64:
+	case NodeType::U64:
+	case NodeType::F64:
+	case NodeType::Null: return type;
+	}
+
+	fprintf(
+		stderr, "error: invalid node type %#02x (offset: %#lx)\n", u8(type), offset - mFileData
+	);
+	return ResultInvalidNodeType();
 }
 
 u32 Reader::getSize() const {
-	if (mOffset == nullptr || getType() == NodeType::Null) return hk::ResultSuccess();
+	if (mOffset == nullptr || HK_TRY(getType()) == NodeType::Null) return hk::ResultSuccess();
 
 	return reader::readU24(mOffset + 1, mHeader.mByteOrder);
 }
@@ -110,7 +142,7 @@ const std::string Reader::getValueString(u32 idx) const {
 }
 
 bool Reader::hasKey(const std::string& key) const {
-	if (getType() != NodeType::Hash) return false;
+	if (HK_TRY(getType()) != NodeType::Hash) return false;
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
@@ -141,10 +173,10 @@ bool Reader::isExistStringValue(const std::string& str) const {
 hk::Result Reader::getContainerOffsets(
 	const u8** typeOffset, const u8** valueOffset, u32 idx
 ) const {
-	if (getType() == NodeType::Array) {
+	if (HK_TRY(getType()) == NodeType::Array) {
 		*typeOffset = mOffset + 4 + idx;
 		*valueOffset = mOffset + util::roundUp(4 + getSize(), 4) + 4 * idx;
-	} else if (getType() == NodeType::Hash) {
+	} else if (HK_TRY(getType()) == NodeType::Hash) {
 		u32 hashIdx = mKeyOrder.at(idx);
 		*typeOffset = mOffset + 7 + 8 * hashIdx;
 		*valueOffset = mOffset + 8 + 8 * hashIdx;
@@ -156,32 +188,34 @@ hk::Result Reader::getContainerOffsets(
 	return hk::ResultSuccess();
 }
 
-hk::Result Reader::getTypeByIdx(NodeType* type, u32 idx) const {
+hk::ValueOrResult<NodeType> Reader::getTypeByIdx(u32 idx) const {
 	const u8 *typeOffset, *valueOffset;
 	HK_TRY(getContainerOffsets(&typeOffset, &valueOffset, idx));
 
-	*type = (NodeType)reader::readU8(typeOffset);
-	return hk::ResultSuccess();
+	return readType(typeOffset);
 }
 
-const std::string Reader::getKeyByIdx(u32 idx) const {
-	if ((getType() != NodeType::Hash) || (idx >= getSize())) return "(null)";
+hk::Result Reader::getKeyByIdx(std::string* out, u32 idx) const {
+	if (HK_TRY(getType()) != NodeType::Hash) return ResultWrongNodeType();
+	if (idx >= getSize()) return hk::ResultOutOfRange();
 
 	u32 keyIdx = mKeyOrder.at(idx);
 	u32 keyValue = reader::readU24(mOffset + 4 + keyIdx * 8, mHeader.mByteOrder);
 
-	return getHashString(keyValue);
+	*out = getHashString(keyValue);
+
+	return hk::ResultSuccess();
 }
 
 hk::Result Reader::getContainerByIdx(Reader* container, u32 idx) const {
 	const u8 *typeOffset, *valueOffset;
 	HK_TRY(getContainerOffsets(&typeOffset, &valueOffset, idx));
 
-	NodeType childType = (NodeType)reader::readU8(typeOffset);
+	NodeType childType = HK_TRY(readType(typeOffset));
 	if (childType != NodeType::Array && childType != NodeType::Hash) return ResultWrongNodeType();
 
 	u32 value = reader::readU32(valueOffset, mHeader.mByteOrder);
-	container->init(*this, value);
+	HK_TRY(container->init(*this, value));
 	return hk::ResultSuccess();
 }
 
@@ -189,7 +223,7 @@ hk::Result Reader::getNodeByIdx(const u8** offset, u32 idx, NodeType expectedTyp
 	const u8 *typeOffset, *valueOffset;
 	HK_TRY(getContainerOffsets(&typeOffset, &valueOffset, idx));
 
-	NodeType childType = (NodeType)reader::readU8(typeOffset);
+	NodeType childType = HK_TRY(readType(typeOffset));
 	if (childType != expectedType) return ResultWrongNodeType();
 
 	*offset = valueOffset;
@@ -200,8 +234,18 @@ hk::Result Reader::getStringByIdx(std::string* out, u32 idx) const {
 	const u8* offset;
 	HK_TRY(getNodeByIdx(&offset, idx, NodeType::String));
 
-	u32 value = reader::readU32(offset, mHeader.mByteOrder);
-	*out = getValueString(value);
+	u32 strIdx = reader::readU32(offset, mHeader.mByteOrder);
+	*out = getValueString(strIdx);
+	return hk::ResultSuccess();
+}
+
+hk::Result Reader::getBinaryByIdx(std::vector<u8>* out, u32 idx) const {
+	const u8* offset;
+	HK_TRY(getNodeByIdx(&offset, idx, NodeType::Binary));
+
+	const u8* binaryOffset = mFileData + reader::readU32(offset, mHeader.mByteOrder);
+	u32 size = reader::readU32(binaryOffset, mHeader.mByteOrder);
+	*out = reader::readBytes(binaryOffset + 4, size);
 	return hk::ResultSuccess();
 }
 
@@ -272,16 +316,15 @@ hk::Result Reader::getU64ByIdx(u64* out, u32 idx) const {
 	return hk::ResultSuccess();
 }
 
-hk::Result Reader::getTypeByKey(NodeType* type, const std::string& key) const {
-	if (getType() != NodeType::Hash) return ResultWrongNodeType();
+hk::ValueOrResult<NodeType> Reader::getTypeByKey(const std::string& key) const {
+	if (HK_TRY(getType()) != NodeType::Hash) return ResultWrongNodeType();
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
 		const u8* childOffset = mOffset + 4 + i * 8;
 		u32 keyIdx = reader::readU24(childOffset, mHeader.mByteOrder);
 		if (util::isEqual(key, getHashString(keyIdx))) {
-			*type = (NodeType)reader::readU8(childOffset + 3);
-			return hk::ResultSuccess();
+			return readType(childOffset + 3);
 		}
 	}
 
@@ -289,18 +332,18 @@ hk::Result Reader::getTypeByKey(NodeType* type, const std::string& key) const {
 }
 
 hk::Result Reader::getContainerByKey(Reader* container, const std::string& key) const {
-	if (getType() != NodeType::Hash) return ResultWrongNodeType();
+	if (HK_TRY(getType()) != NodeType::Hash) return ResultWrongNodeType();
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
 		const u8* childOffset = mOffset + 4 + i * 8;
 		u32 keyIdx = reader::readU24(childOffset, mHeader.mByteOrder);
 		if (util::isEqual(key, getHashString(keyIdx))) {
-			NodeType type = (NodeType)reader::readU8(childOffset + 3);
+			NodeType type = HK_TRY(readType(childOffset + 3));
 			if (type != NodeType::Array && type != NodeType::Hash) return ResultWrongNodeType();
 
 			u32 value = reader::readU32(childOffset + 4, mHeader.mByteOrder);
-			container->init(*this, value);
+			HK_TRY(container->init(*this, value));
 
 			return hk::ResultSuccess();
 		}
@@ -312,14 +355,14 @@ hk::Result Reader::getContainerByKey(Reader* container, const std::string& key) 
 hk::Result Reader::getNodeByKey(
 	const u8** offset, const std::string& key, NodeType expectedType
 ) const {
-	if (getType() != NodeType::Hash) return ResultWrongNodeType();
+	if (HK_TRY(getType()) != NodeType::Hash) return ResultWrongNodeType();
 
 	// TODO: implement binary search
 	for (u32 i = 0; i < getSize(); i++) {
 		const u8* childOffset = mOffset + 4 + i * 8;
 		u32 keyIdx = reader::readU24(childOffset, mHeader.mByteOrder);
 		if (util::isEqual(key, getHashString(keyIdx))) {
-			NodeType childType = (NodeType)reader::readU8(childOffset + 3);
+			NodeType childType = HK_TRY(readType(childOffset + 3));
 			if (childType != expectedType) return ResultWrongNodeType();
 
 			*offset = childOffset;
@@ -336,6 +379,16 @@ hk::Result Reader::getStringByKey(std::string* out, const std::string& key) cons
 
 	u32 value = reader::readU32(offset + 4, mHeader.mByteOrder);
 	*out = getValueString(value);
+	return hk::ResultSuccess();
+}
+
+hk::Result Reader::getBinaryByKey(std::vector<u8>* out, const std::string& key) const {
+	const u8* offset;
+	HK_TRY(getNodeByKey(&offset, key, NodeType::Binary));
+
+	const u8* binaryOffset = mFileData + reader::readU32(offset, mHeader.mByteOrder);
+	u32 size = reader::readU32(binaryOffset, mHeader.mByteOrder);
+	*out = reader::readBytes(binaryOffset + 4, size);
 	return hk::ResultSuccess();
 }
 
