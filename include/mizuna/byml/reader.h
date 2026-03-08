@@ -33,7 +33,7 @@ public:
 
 	hk::ValueOrResult<Reader> getContainerByIdx(u32 idx) const;
 	hk::Result getStringByIdx(std::string* out, u32 idx) const;
-	hk::Result getBinaryByIdx(std::vector<u8>* out, u32 idx) const;
+	hk::Result getBinaryByIdx(std::vector<u8>* out, u32* outAlignment, u32 idx) const;
 	hk::ValueOrResult<bool> getBoolByIdx(u32 idx) const;
 	hk::ValueOrResult<s32> getS32ByIdx(u32 idx) const;
 	hk::ValueOrResult<f32> getF32ByIdx(u32 idx) const;
@@ -44,7 +44,7 @@ public:
 
 	hk::ValueOrResult<Reader> getContainerByKey(const std::string& key) const;
 	hk::Result getStringByKey(std::string* out, const std::string& key) const;
-	hk::Result getBinaryByKey(std::vector<u8>* out, const std::string& key) const;
+	hk::Result getBinaryByKey(std::vector<u8>* outData, u32* outAlignment, std::string& key) const;
 	hk::ValueOrResult<bool> getBoolByKey(const std::string& key) const;
 	hk::ValueOrResult<s32> getS32ByKey(const std::string& key) const;
 	hk::ValueOrResult<f32> getF32ByKey(const std::string& key) const;

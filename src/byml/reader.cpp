@@ -249,7 +249,7 @@ hk::Result Reader::getStringByIdx(std::string* out, u32 idx) const {
 	return hk::ResultSuccess();
 }
 
-hk::Result Reader::getBinaryByIdx(std::vector<u8>* out, u32 idx) const {
+hk::Result Reader::getBinaryByIdx(std::vector<u8>* outData, u32* outAlignment, u32 idx) const {
 	const u8* offset;
 	NodeType type;
 	tie(offset, type) = HK_TRY(getNodeByIdxNoType(idx));
@@ -258,12 +258,12 @@ hk::Result Reader::getBinaryByIdx(std::vector<u8>* out, u32 idx) const {
 
 	const u8* binaryOffset = mFileData + reader::readU32(offset, mHeader.mByteOrder);
 	u32 size = reader::readU32(binaryOffset, mHeader.mByteOrder);
-	u32 alignment = 0;
 	if (type == NodeType::Binary) {
-		*out = reader::readBytes(binaryOffset + 4, size);
+		*outAlignment = 0;
+		*outData = reader::readBytes(binaryOffset + 4, size);
 	} else {
-		alignment = reader::readU32(binaryOffset + 4, mHeader.mByteOrder);
-		*out = reader::readBytes(binaryOffset + 8, size);
+		*outAlignment = reader::readU32(binaryOffset + 4, mHeader.mByteOrder);
+		*outData = reader::readBytes(binaryOffset + 8, size);
 	}
 	return hk::ResultSuccess();
 }
@@ -396,7 +396,9 @@ hk::Result Reader::getStringByKey(std::string* out, const std::string& key) cons
 	return hk::ResultSuccess();
 }
 
-hk::Result Reader::getBinaryByKey(std::vector<u8>* out, const std::string& key) const {
+hk::Result Reader::getBinaryByKey(
+	std::vector<u8>* outData, u32* outAlignment, std::string& key
+) const {
 	const u8* offset;
 	NodeType type;
 	tie(offset, type) = HK_TRY(getNodeByKeyNoType(key));
@@ -405,12 +407,12 @@ hk::Result Reader::getBinaryByKey(std::vector<u8>* out, const std::string& key) 
 
 	const u8* binaryOffset = mFileData + reader::readU32(offset, mHeader.mByteOrder);
 	u32 size = reader::readU32(binaryOffset, mHeader.mByteOrder);
-	u32 alignment = 0;
 	if (type == NodeType::Binary) {
-		*out = reader::readBytes(binaryOffset + 4, size);
+		*outAlignment = 0;
+		*outData = reader::readBytes(binaryOffset + 4, size);
 	} else {
-		alignment = reader::readU32(binaryOffset + 4, mHeader.mByteOrder);
-		*out = reader::readBytes(binaryOffset + 8, size);
+		*outAlignment = reader::readU32(binaryOffset + 4, mHeader.mByteOrder);
+		*outData = reader::readBytes(binaryOffset + 8, size);
 	}
 	return hk::ResultSuccess();
 }
