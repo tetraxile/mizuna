@@ -1,0 +1,34 @@
+version 3
+endian little
+root array [
+  hash {
+    UnitConfigName: string "Coin",
+    Links: hash {
+      ViewGroup: array [
+        hash {
+          // ...
+        },
+      ],
+    },
+    Translate: hash {
+      X: f32 100.0,
+      Y: f32 0.0,
+      Z: f32 100.0,
+    },
+    Values: array [
+      binary `01020304`,
+      binary % 0x100 `aa55`,
+      string "meow",
+      array [],
+      hash {},
+      bool true,
+      s32 -25,
+      f32 3.14,
+      u32 20,
+      s64 150,
+      u64 1000,
+      f64 2.71828,
+      null,
+    ],
+  },
+]

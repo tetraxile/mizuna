@@ -1,0 +1,91 @@
+BYAML version 3
+
+===== description =====
+
+the overall file layout doesn't strictly matter but in Nintendo's
+files it goes like this:
+- header
+- hash key table
+- string value table
+- "big data" table (i.e. area for 64 bit nodes and binary data)
+- data tree
+
+node values are always 4 bytes long. for small value node types that
+fit in 4 bytes, they're stored directly there; for other nodes, an
+offset from the start of the file is instead stored.
+
+
+===== HEADER =====
+
+offset | size | type    | description
+-------+------+---------+------------------------------------------------------------------
+0x00   | 0x02 | char[2] | signature / byte order ('BY' = big-endian, 'YB' = little-endian)
+0x02   | 0x02 | u16     | version
+0x04   | 0x04 | u32     | hash key table offset (string table node) (0 if empty)
+0x08   | 0x04 | u32     | string value table offset (string table node) (0 if empty)
+0x0c   | 0x04 | u32     | root node offset (0 if no data)
+0x10   |      |         | 
+
+
+===== NodeType enum =====
+
+value | type                | version added
+------+---------------------+---------------
+0xa0  | string              | 1
+0xa1  | binary              | 4
+0xa2  | binary w/ alignment | 4
+0xc0  | array               | 1
+0xc1  | hash map            | 1
+0xc2  | string table        | 1
+0xd0  | bool                | 1
+0xd1  | s32                 | 1
+0xd2  | f32                 | 1
+0xd3  | u32                 | 1
+0xd4  | s64                 | 3
+0xd5  | u64                 | 3
+0xd6  | f64                 | 3
+0xff  | null                | 1
+
+
+===== string table node =====
+
+offset | size     | type      | description
+-------+----------+-----------+--------------------------------
+0x00   | 0x01     | NodeType  | node type (0xc2)
+0x01   | 0x03     | u24       | number of strings (n)
+0x04   | 0x04 * n | u32[n]    | offsets of each string
+       | 0x04     | u32       | offset of end of last string
+       |          | char[][n] | null-terminated strings
+       |          | u8[]      | padding to next multiple of 4
+% 0x04 |          |           | 
+
+
+===== array node =====
+
+offset | size     | type     | description
+-------+----------+----------+---------------------------
+0x00   | 0x01     | NodeType | node type (0xc0)
+0x01   | 0x03     | u24      | entry count (n)
+0x04   | n        | u8[n]    | entry node types
+       |          | u8[]     | padding
+% 0x04 | 0x04 * n | u32[n]   | entry node values/offsets
+       |          |          | 
+
+
+===== hash node =====
+
+offset | size     | type         | description
+-------+----------+--------------+------------------
+0x00   | 0x01     | NodeType     | node type (0xc1)
+0x01   | 0x03     | u24          | entry count (n)
+0x04   | 0x08 * n | HashEntry[n] | entries
+       |          |              | 
+
+
+===== HashEntry =====
+
+offset | size | type     | description
+-------+------+----------+---------------------------
+0x00   | 0x03 | u24      | index of hash key
+0x03   | 0x01 | NodeType | entry node type
+0x04   | 0x04 | u32      | entry node value/offset
