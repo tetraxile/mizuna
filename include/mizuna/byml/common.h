@@ -8,6 +8,8 @@ namespace byml {
 
 enum class NodeType : u8 {
 	String = 0xa0,
+	Binary = 0xa1,
+	BinaryAlignment = 0xa2,
 	Array = 0xc0,
 	Hash = 0xc1,
 	StringTable = 0xc2,

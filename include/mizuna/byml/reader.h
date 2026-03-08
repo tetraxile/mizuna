@@ -1,5 +1,8 @@
 #pragma once
 
+#include <hk/ValueOrResult.h>
+
+#include "hk/util/Tuple.h"
 #include "mizuna/byml/common.h"
 #include "mizuna/util.h"
 
@@ -8,99 +11,47 @@ namespace byml {
 class Reader {
 public:
 	Reader();
-	hk::Result init(const u8* fileData);
+	hk::Result init(const u8* fileData, const size fileSize);
 	hk::Result init(const Reader& other, const u32 offset);
+
+	u16 getVersion() const { return mHeader.mVersion; }
+
+	util::ByteOrder getByteOrder() const { return mHeader.mByteOrder; }
 
 	const std::string getHashString(u32 idx) const;
 	const std::string getValueString(u32 idx) const;
 	bool isExistHashString(const std::string& str) const;
 	bool isExistStringValue(const std::string& str) const;
 
-	NodeType getType() const;
+	hk::ValueOrResult<NodeType> getType() const;
 	u32 getSize() const;
 	bool hasKey(const std::string& key) const;
 
-	hk::Result getTypeByIdx(NodeType* type, u32 idx) const;
-	hk::Result getTypeByKey(NodeType* type, const std::string& key) const;
-	const std::string getKeyByIdx(u32 idx) const;
+	hk::ValueOrResult<NodeType> getTypeByIdx(u32 idx) const;
+	hk::ValueOrResult<NodeType> getTypeByKey(const std::string& key) const;
+	hk::Result getKeyByIdx(std::string* out, u32 idx) const;
 
-	hk::Result getContainerByIdx(Reader* container, u32 idx) const;
+	hk::ValueOrResult<Reader> getContainerByIdx(u32 idx) const;
 	hk::Result getStringByIdx(std::string* out, u32 idx) const;
-	hk::Result getBoolByIdx(bool* out, u32 idx) const;
-	hk::Result getS32ByIdx(s32* out, u32 idx) const;
-	hk::Result getF32ByIdx(f32* out, u32 idx) const;
-	hk::Result getU32ByIdx(u32* out, u32 idx) const;
-	hk::Result getS64ByIdx(s64* out, u32 idx) const;
-	hk::Result getF64ByIdx(f64* out, u32 idx) const;
-	hk::Result getU64ByIdx(u64* out, u32 idx) const;
+	hk::Result getBinaryByIdx(std::vector<u8>* out, u32 idx) const;
+	hk::ValueOrResult<bool> getBoolByIdx(u32 idx) const;
+	hk::ValueOrResult<s32> getS32ByIdx(u32 idx) const;
+	hk::ValueOrResult<f32> getF32ByIdx(u32 idx) const;
+	hk::ValueOrResult<u32> getU32ByIdx(u32 idx) const;
+	hk::ValueOrResult<s64> getS64ByIdx(u32 idx) const;
+	hk::ValueOrResult<f64> getF64ByIdx(u32 idx) const;
+	hk::ValueOrResult<u64> getU64ByIdx(u32 idx) const;
 
-	hk::Result getContainerByKey(Reader* container, const std::string& key) const;
+	hk::ValueOrResult<Reader> getContainerByKey(const std::string& key) const;
 	hk::Result getStringByKey(std::string* out, const std::string& key) const;
-	hk::Result getBoolByKey(bool* out, const std::string& key) const;
-	hk::Result getS32ByKey(s32* out, const std::string& key) const;
-	hk::Result getF32ByKey(f32* out, const std::string& key) const;
-	hk::Result getU32ByKey(u32* out, const std::string& key) const;
-	hk::Result getS64ByKey(s64* out, const std::string& key) const;
-	hk::Result getF64ByKey(f64* out, const std::string& key) const;
-	hk::Result getU64ByKey(u64* out, const std::string& key) const;
-
-	bool tryGetContainerByIdx(Reader* container, u32 idx) const {
-		return getContainerByIdx(container, idx) ? false : true;
-	}
-
-	bool tryGetStringByIdx(std::string* out, u32 idx) const {
-		return getStringByIdx(out, idx) ? false : true;
-	}
-
-	bool tryGetBoolByIdx(bool* out, u32 idx) const { return getBoolByIdx(out, idx) ? false : true; }
-
-	bool tryGetS32ByIdx(s32* out, u32 idx) const { return getS32ByIdx(out, idx) ? false : true; }
-
-	bool tryGetF32ByIdx(f32* out, u32 idx) const { return getF32ByIdx(out, idx) ? false : true; }
-
-	bool tryGetU32ByIdx(u32* out, u32 idx) const { return getU32ByIdx(out, idx) ? false : true; }
-
-	bool tryGetS64ByIdx(s64* out, u32 idx) const { return getS64ByIdx(out, idx) ? false : true; }
-
-	bool tryGetF64ByIdx(f64* out, u32 idx) const { return getF64ByIdx(out, idx) ? false : true; }
-
-	bool tryGetU64ByIdx(u64* out, u32 idx) const { return getU64ByIdx(out, idx) ? false : true; }
-
-	bool tryGetContainerByKey(Reader* container, const std::string& key) const {
-		return getContainerByKey(container, key) ? false : true;
-	}
-
-	bool tryGetStringByKey(std::string* out, const std::string& key) const {
-		return getStringByKey(out, key) ? false : true;
-	}
-
-	bool tryGetBoolByKey(bool* out, const std::string& key) const {
-		return getBoolByKey(out, key) ? false : true;
-	}
-
-	bool tryGetS32ByKey(s32* out, const std::string& key) const {
-		return getS32ByKey(out, key) ? false : true;
-	}
-
-	bool tryGetF32ByKey(f32* out, const std::string& key) const {
-		return getF32ByKey(out, key) ? false : true;
-	}
-
-	bool tryGetU32ByKey(u32* out, const std::string& key) const {
-		return getU32ByKey(out, key) ? false : true;
-	}
-
-	bool tryGetS64ByKey(s64* out, const std::string& key) const {
-		return getS64ByKey(out, key) ? false : true;
-	}
-
-	bool tryGetF64ByKey(f64* out, const std::string& key) const {
-		return getF64ByKey(out, key) ? false : true;
-	}
-
-	bool tryGetU64ByKey(u64* out, const std::string& key) const {
-		return getU64ByKey(out, key) ? false : true;
-	}
+	hk::Result getBinaryByKey(std::vector<u8>* out, const std::string& key) const;
+	hk::ValueOrResult<bool> getBoolByKey(const std::string& key) const;
+	hk::ValueOrResult<s32> getS32ByKey(const std::string& key) const;
+	hk::ValueOrResult<f32> getF32ByKey(const std::string& key) const;
+	hk::ValueOrResult<u32> getU32ByKey(const std::string& key) const;
+	hk::ValueOrResult<s64> getS64ByKey(const std::string& key) const;
+	hk::ValueOrResult<f64> getF64ByKey(const std::string& key) const;
+	hk::ValueOrResult<u64> getU64ByKey(const std::string& key) const;
 
 private:
 	struct Header {
@@ -115,15 +66,22 @@ private:
 	};
 
 	hk::Result initHeader();
-	void initKeyOrder();
+	hk::Result initKeyOrder();
 
-	hk::Result getNodeByKey(const u8** offset, const std::string& key, NodeType expectedType) const;
-	hk::Result getNodeByIdx(const u8** offset, u32 idx, NodeType expectedType) const;
-	hk::Result getContainerOffsets(const u8** typeOffset, const u8** valueOffset, u32 idx) const;
+	hk::ValueOrResult<const u8*> getNodeByKey(const std::string& key, NodeType expectedType) const;
+	hk::ValueOrResult<const u8*> getNodeByIdx(u32 idx, NodeType expectedType) const;
+	hk::ValueOrResult<hk::Tuple<const u8*, NodeType>> getNodeByIdxNoType(u32 idx) const;
+	hk::ValueOrResult<hk::Tuple<const u8*, NodeType>> getNodeByKeyNoType(
+		const std::string& key
+	) const;
+	hk::ValueOrResult<hk::Tuple<const u8*, const u8*>> getContainerOffsets(u32 idx) const;
+	hk::ValueOrResult<NodeType> readType(const u8* offset) const;
+	hk::ValueOrResult<u32> getKeyIdx(const std::string& key) const;
 
 	const u8* mFileData = nullptr;
 	const u8* mOffset = nullptr;
 	Header mHeader;
+	size mFileSize = 0;
 
 	std::vector<u32> mKeyOrder;
 };
