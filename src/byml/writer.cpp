@@ -16,8 +16,8 @@ void Writer::saveToVec(std::vector<u8>& out, util::ByteOrder byteOrder) {
 
 	u32 hashKeyTableOffset = 0x10;
 	u32 valueStringTableOffset = hashKeyTableOffset + mHashKeyStringTable.calcSize();
-	u32 data64Offset = valueStringTableOffset + mValueStringTable.calcSize();
-	u32 rootOffset = util::roundUp(data64Offset + mData64.size() * 8, 4);
+	u32 bigDataOffset = valueStringTableOffset + mValueStringTable.calcSize();
+	u32 rootOffset = bigDataOffset + mBigDataTable.calcSize();
 
 	writer::writeU32LE(out, 0x4, mHashKeyStringTable.isEmpty() ? 0 : hashKeyTableOffset);
 	writer::writeU32LE(out, 0x8, mValueStringTable.isEmpty() ? 0 : valueStringTableOffset);
@@ -25,15 +25,9 @@ void Writer::saveToVec(std::vector<u8>& out, util::ByteOrder byteOrder) {
 
 	mHashKeyStringTable.write(out, hashKeyTableOffset);
 	mValueStringTable.write(out, valueStringTableOffset);
+	mBigDataTable.write(out, bigDataOffset);
 
-	u32 writePtr = data64Offset;
-	for (auto* node : mData64) {
-		node->setOffset(writePtr);
-		node->writeData64(out, writePtr);
-		writePtr += 8;
-	}
-
-	writePtr = rootOffset;
+	u32 writePtr = rootOffset;
 	for (Container* container : mContainerList) {
 		container->setOffset(writePtr);
 		writePtr += container->calcSize();
@@ -174,6 +168,12 @@ hk::Result Writer::addString(const std::string& value) {
 	return addNode(new String(value, mValueStringTable));
 }
 
+hk::Result Writer::addBinary(const std::vector<u8>& data, u32 alignment) {
+	Binary* node = new Binary(data, alignment);
+	mBigDataTable.add(node);
+	return addNode(node);
+}
+
 hk::Result Writer::addBool(bool value) {
 	return addNode(new Bool(value));
 }
@@ -192,19 +192,19 @@ hk::Result Writer::addU32(u32 value) {
 
 hk::Result Writer::addS64(s64 value) {
 	S64* node = new S64(value);
-	mData64.push_back(node);
+	mBigDataTable.add(node);
 	return addNode(node);
 }
 
 hk::Result Writer::addU64(u64 value) {
 	U64* node = new U64(value);
-	mData64.push_back(node);
+	mBigDataTable.add(node);
 	return addNode(node);
 }
 
 hk::Result Writer::addF64(f64 value) {
 	F64* node = new F64(value);
-	mData64.push_back(node);
+	mBigDataTable.add(node);
 	return addNode(node);
 }
 
@@ -215,6 +215,12 @@ hk::Result Writer::addNull() {
 hk::Result Writer::addString(const std::string& key, const std::string& value) {
 	mValueStringTable.addString(value);
 	return addNode(key, new String(value, mValueStringTable));
+}
+
+hk::Result Writer::addBinary(const std::string& key, const std::vector<u8>& data, u32 alignment) {
+	Binary* node = new Binary(data, alignment);
+	mBigDataTable.add(node);
+	return addNode(key, node);
 }
 
 hk::Result Writer::addBool(const std::string& key, bool value) {
@@ -235,19 +241,19 @@ hk::Result Writer::addU32(const std::string& key, u32 value) {
 
 hk::Result Writer::addS64(const std::string& key, s64 value) {
 	S64* node = new S64(value);
-	mData64.push_back(node);
+	mBigDataTable.add(node);
 	return addNode(key, node);
 }
 
 hk::Result Writer::addU64(const std::string& key, u64 value) {
 	U64* node = new U64(value);
-	mData64.push_back(node);
+	mBigDataTable.add(node);
 	return addNode(key, node);
 }
 
 hk::Result Writer::addF64(const std::string& key, f64 value) {
 	F64* node = new F64(value);
-	mData64.push_back(node);
+	mBigDataTable.add(node);
 	return addNode(key, node);
 }
 

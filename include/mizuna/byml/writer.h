@@ -34,6 +34,49 @@ private:
 		NodeType mType;
 	};
 
+	struct BigValueNode : Node {
+		BigValueNode(NodeType type) : Node(type) {}
+
+		virtual void writeBigData(std::vector<u8>& outputBuffer, u32 offset) const = 0;
+		virtual u32 dataSize() const = 0;
+		virtual u32 dataAlignment() const = 0;
+
+		u32 calcSize() const override { return 4; }
+
+		void write(std::vector<u8>& outputBuffer, u32 offset) const override {
+			writer::writeU32LE(outputBuffer, offset, mOffset);
+		}
+
+		void setOffset(u32 offset) { mOffset = offset; }
+
+		u32 mOffset;
+	};
+
+	struct BigDataTable {
+		void add(BigValueNode* node) { mData.push_back(node); }
+
+		void write(std::vector<u8>& outputBuffer, u32 offset) const {
+			u32 writePtr = offset;
+			for (BigValueNode* node : mData) {
+				writePtr = util::roundUp(writePtr, node->dataAlignment());
+				node->setOffset(writePtr);
+				node->writeBigData(outputBuffer, writePtr);
+				writePtr += node->dataSize();
+			}
+		}
+
+		u32 calcSize() const {
+			u32 size = 0;
+			for (const BigValueNode* node : mData) {
+				size += node->dataSize();
+				size = util::roundUp(size, node->dataAlignment());
+			}
+			return util::roundUp(size, 4);
+		}
+
+		std::vector<BigValueNode*> mData;
+	};
+
 	struct StringTable {
 		void addString(const std::string& string);
 		void write(std::vector<u8>& outputBuffer, u32 offset) const;
@@ -167,46 +210,68 @@ private:
 		}
 	};
 
-	struct Value64Node : Node {
-		Value64Node(NodeType type) : Node(type) {}
+	struct Binary : BigValueNode {
+		Binary(const std::vector<u8>& data, u32 alignment = 0) :
+			BigValueNode(alignment == 0 ? NodeType::Binary : NodeType::BinaryAlignment),
+			mData(data),
+			mAlignment(alignment) {}
 
-		virtual void writeData64(std::vector<u8>& outputBuffer, u32 offset) const = 0;
-
-		u32 calcSize() const override { return 4; }
-
-		void write(std::vector<u8>& outputBuffer, u32 offset) const override {
-			writer::writeU32LE(outputBuffer, offset, mOffset);
+		u32 dataSize() const override {
+			return sizeof(u32) * mAlignment == 0 ? 2 : 1 + util::roundUp(mData.size(), 4);
 		}
 
-		void setOffset(u32 offset) { mOffset = offset; }
+		u32 dataAlignment() const override { return 4; }
 
-		u32 mOffset;
+		void writeBigData(std::vector<u8>& outputBuffer, u32 offset) const override {
+			writer::writeU32LE(outputBuffer, offset, mData.size());
+			if (mType == NodeType::Binary) {
+				writer::writeBytes(outputBuffer, offset + 4, mData);
+			} else {
+				writer::writeU32LE(outputBuffer, offset + 4, mAlignment);
+				writer::writeBytes(outputBuffer, offset + 8, mData);
+			}
+		}
+
+		const std::vector<u8> mData;
+		u32 mAlignment;
 	};
 
-	struct S64 : Value64Node {
-		S64(s64 value) : Value64Node(NodeType::S64), mValue(value) {}
+	struct S64 : BigValueNode {
+		S64(s64 value) : BigValueNode(NodeType::S64), mValue(value) {}
 
-		void writeData64(std::vector<u8>& outputBuffer, u32 offset) const override {
+		u32 dataSize() const override { return sizeof(s64); }
+
+		u32 dataAlignment() const override { return 8; }
+
+		void writeBigData(std::vector<u8>& outputBuffer, u32 offset) const override {
 			writer::writeS64LE(outputBuffer, offset, mValue);
 		}
 
 		s64 mValue;
 	};
 
-	struct U64 : Value64Node {
-		U64(u64 value) : Value64Node(NodeType::U64), mValue(value) {}
+	struct U64 : BigValueNode {
+		U64(u64 value) : BigValueNode(NodeType::U64), mValue(value) {}
 
-		void writeData64(std::vector<u8>& outputBuffer, u32 offset) const override {
+		u32 dataSize() const override { return sizeof(u64); }
+
+		u32 dataAlignment() const override { return 8; }
+
+		void writeBigData(std::vector<u8>& outputBuffer, u32 offset) const override {
 			writer::writeU64LE(outputBuffer, offset, mValue);
 		}
 
 		u64 mValue;
 	};
 
-	struct F64 : Value64Node {
-		F64(f64 value) : Value64Node(NodeType::F64), mValue(value) {}
+	struct F64 : BigValueNode {
+		F64(f64 value) : BigValueNode(NodeType::F64), mValue(value) {}
 
-		void writeData64(std::vector<u8>& outputBuffer, u32 offset) const override {
+		u32 dataSize() const override { return sizeof(f64); }
+
+		u32 dataAlignment() const override { return 8; }
+
+		void writeBigData(std::vector<u8>& outputBuffer, u32 offset) const override {
 			writer::writeF64LE(outputBuffer, offset, mValue);
 		}
 
@@ -226,6 +291,7 @@ public:
 	hk::Result pop();
 
 	hk::Result addString(const std::string& value);
+	hk::Result addBinary(const std::vector<u8>& data, u32 alignment = 0);
 	hk::Result addBool(bool value);
 	hk::Result addS32(s32 value);
 	hk::Result addF32(f32 value);
@@ -236,6 +302,7 @@ public:
 	hk::Result addNull();
 
 	hk::Result addString(const std::string& key, const std::string& value);
+	hk::Result addBinary(const std::string& key, const std::vector<u8>& data, u32 alignment = 0);
 	hk::Result addBool(const std::string& key, bool value);
 	hk::Result addS32(const std::string& key, s32 value);
 	hk::Result addF32(const std::string& key, f32 value);
@@ -257,7 +324,7 @@ private:
 	std::vector<Container*> mContainerList;
 	StringTable mHashKeyStringTable;
 	StringTable mValueStringTable;
-	std::vector<Value64Node*> mData64;
+	BigDataTable mBigDataTable;
 };
 
 } // namespace byml
