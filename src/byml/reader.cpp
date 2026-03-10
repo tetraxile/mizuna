@@ -220,7 +220,9 @@ hk::ValueOrResult<Reader> Reader::getContainerByIdx(u32 idx) const {
 	u32 offset = reader::readU32(valueOffset, mHeader.mByteOrder);
 
 	Reader container;
-	return HK_TRY(container.init(*this, offset));
+	HK_TRY(container.init(*this, offset));
+
+	return container;
 }
 
 hk::ValueOrResult<const u8*> Reader::getNodeByIdx(u32 idx, NodeType expectedType) const {
@@ -349,7 +351,9 @@ hk::ValueOrResult<Reader> Reader::getContainerByKey(const std::string& key) cons
 
 			u32 value = reader::readU32(childOffset + 4, mHeader.mByteOrder);
 			Reader container;
-			return HK_TRY(container.init(*this, value));
+			HK_TRY(container.init(*this, value));
+
+			return container;
 		}
 	}
 
