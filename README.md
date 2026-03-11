@@ -6,7 +6,7 @@ Supported formats:
 * Yaz0
 * SARC
 * SZS (Yaz0-compressed SARC)
-* BYML (versions: 2, 3)
+* BYML (versions: 1, 2, 3)
 
 In progress:
 * BFFNT
