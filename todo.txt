@@ -9,7 +9,6 @@
     - implement hash key binary search
     - compression ratio for saving. can reuse identical container nodes/special type nodes
     - less naive way of finding string idx in string table
-    - support big endian
 
 
 document what each object does
