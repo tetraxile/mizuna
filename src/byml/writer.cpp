@@ -6,26 +6,21 @@
 namespace byml {
 
 void Writer::saveToVec(std::vector<u8>& out, util::ByteOrder byteOrder) {
-	if (byteOrder != util::ByteOrder::Little) {
-		fprintf(stderr, "error: unimplemented big-endian byml writer\n");
-		return;
-	}
-
-	writer::writeU16LE(out, 0, 0x4259);   // byte order mark
-	writer::writeU16LE(out, 2, mVersion); // version
+	writer::writeU16(out, 0, 0x4259, byteOrder);   // byte order mark
+	writer::writeU16(out, 2, mVersion, byteOrder); // version
 
 	u32 hashKeyTableOffset = 0x10;
 	u32 valueStringTableOffset = hashKeyTableOffset + mHashKeyStringTable.calcSize();
 	u32 bigDataOffset = valueStringTableOffset + mValueStringTable.calcSize();
 	u32 rootOffset = bigDataOffset + mBigDataTable.calcSize();
 
-	writer::writeU32LE(out, 0x4, mHashKeyStringTable.isEmpty() ? 0 : hashKeyTableOffset);
-	writer::writeU32LE(out, 0x8, mValueStringTable.isEmpty() ? 0 : valueStringTableOffset);
-	writer::writeU32LE(out, 0xc, mContainerList.empty() ? 0 : rootOffset);
+	writer::writeU32(out, 0x4, mHashKeyStringTable.isEmpty() ? 0 : hashKeyTableOffset, byteOrder);
+	writer::writeU32(out, 0x8, mValueStringTable.isEmpty() ? 0 : valueStringTableOffset, byteOrder);
+	writer::writeU32(out, 0xc, mContainerList.empty() ? 0 : rootOffset, byteOrder);
 
-	mHashKeyStringTable.write(out, hashKeyTableOffset);
-	mValueStringTable.write(out, valueStringTableOffset);
-	mBigDataTable.write(out, bigDataOffset);
+	mHashKeyStringTable.write(out, hashKeyTableOffset, byteOrder);
+	mValueStringTable.write(out, valueStringTableOffset, byteOrder);
+	mBigDataTable.write(out, bigDataOffset, byteOrder);
 
 	u32 writePtr = rootOffset;
 	for (Container* container : mContainerList) {
@@ -34,7 +29,7 @@ void Writer::saveToVec(std::vector<u8>& out, util::ByteOrder byteOrder) {
 	}
 
 	for (Container* container : mContainerList) {
-		container->writeContainer(out);
+		container->writeContainer(out, byteOrder);
 	}
 }
 
@@ -265,22 +260,22 @@ void Writer::StringTable::addString(const std::string& string) {
 	mStrings.insert(string);
 }
 
-void Writer::StringTable::write(std::vector<u8>& outputBuffer, u32 offset) const {
+void Writer::StringTable::write(std::vector<u8>& outputBuffer, u32 offset, util::ByteOrder byteOrder) const {
 	if (isEmpty()) return;
 
 	writer::writeU8(outputBuffer, offset, (u8)NodeType::StringTable);
-	writer::writeU24LE(outputBuffer, offset + 1, size());
+	writer::writeU24(outputBuffer, offset + 1, size(), byteOrder);
 
 	u32 addrOffset = offset + 4;
 	u32 strOffset = addrOffset + 4 * size() + 4;
 	for (const std::string& string : mStrings) {
-		writer::writeU32LE(outputBuffer, addrOffset, strOffset - offset);
+		writer::writeU32(outputBuffer, addrOffset, strOffset - offset, byteOrder);
 		writer::writeString(outputBuffer, strOffset, string);
 		strOffset += string.size() + 1;
 		addrOffset += 4;
 	}
 
-	writer::writeU32LE(outputBuffer, offset + 4 + 4 * size(), strOffset - offset);
+	writer::writeU32(outputBuffer, offset + 4 + 4 * size(), strOffset - offset, byteOrder);
 }
 
 u32 Writer::StringTable::find(const std::string& string) const {
@@ -295,9 +290,9 @@ u32 Writer::StringTable::find(const std::string& string) const {
 	return 0xffffff;
 }
 
-void Writer::Array::writeContainer(std::vector<u8>& outputBuffer) const {
+void Writer::Array::writeContainer(std::vector<u8>& outputBuffer, util::ByteOrder byteOrder) const {
 	writer::writeU8(outputBuffer, mOffset, (u8)mType);
-	writer::writeU24LE(outputBuffer, mOffset + 1, size());
+	writer::writeU24(outputBuffer, mOffset + 1, size(), byteOrder);
 
 	u32 typeOffset = mOffset + 4;
 	for (Node* node : mNodes)
@@ -305,14 +300,14 @@ void Writer::Array::writeContainer(std::vector<u8>& outputBuffer) const {
 
 	u32 valueOffset = mOffset + 4 + util::roundUp(size(), 4);
 	for (Node* node : mNodes) {
-		node->write(outputBuffer, valueOffset);
+		node->write(outputBuffer, valueOffset, byteOrder);
 		valueOffset += 4;
 	}
 }
 
-void Writer::Hash::writeContainer(std::vector<u8>& outputBuffer) const {
+void Writer::Hash::writeContainer(std::vector<u8>& outputBuffer, util::ByteOrder byteOrder) const {
 	writer::writeU8(outputBuffer, mOffset, (u8)mType);
-	writer::writeU24LE(outputBuffer, mOffset + 1, size());
+	writer::writeU24(outputBuffer, mOffset + 1, size(), byteOrder);
 
 	std::vector<std::pair<u32, Node*>> idxNodes;
 	idxNodes.reserve(mNodes.size());
@@ -326,9 +321,9 @@ void Writer::Hash::writeContainer(std::vector<u8>& outputBuffer) const {
 
 	u32 nodeOffset = mOffset + 4;
 	for (const auto& [keyIdx, node] : idxNodes) {
-		writer::writeU24LE(outputBuffer, nodeOffset, keyIdx);
+		writer::writeU24(outputBuffer, nodeOffset, keyIdx, byteOrder);
 		writer::writeU8(outputBuffer, nodeOffset + 3, (u8)node->mType);
-		node->write(outputBuffer, nodeOffset + 4);
+		node->write(outputBuffer, nodeOffset + 4, byteOrder);
 		nodeOffset += 8;
 	}
 }
