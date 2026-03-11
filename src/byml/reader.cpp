@@ -16,9 +16,9 @@ hk::Result Reader::initHeader() {
 	HK_TRY(reader::readByteOrder(&mHeader.mByteOrder, mFileData, 0x4259));
 
 	mHeader.mVersion = reader::readU16(mFileData + 2, mHeader.mByteOrder);
-	if (mHeader.mVersion < 2 || mHeader.mVersion > 4) {
+	if (mHeader.mVersion < 1 || mHeader.mVersion > 4) {
 		fprintf(
-			stderr, "error: unsupported BYML version (got: %d, expected: 2, 3, 4)\n",
+			stderr, "error: unsupported BYML version (got: %d, expected: 1, 2, 3, 4)\n",
 			mHeader.mVersion
 		);
 		return ResultUnimplementedVersion();
